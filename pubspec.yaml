@@ -1,0 +1,27 @@
+name: hyefit
+description: "혜핏 - 카드 혜택 자동 계산 금융비서"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  supabase_flutter: ^2.8.0
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  flutter_dotenv: ^5.2.1
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
