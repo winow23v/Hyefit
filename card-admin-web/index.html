@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>혜핏 카드 마스터 관리</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0A0E1A;
+            color: #E5E7EB;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #60A5FA;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #9CA3AF;
+            font-size: 14px;
+        }
+
+        .config-section {
+            background: #1A1F2E;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h2 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #60A5FA;
+        }
+
+        input[type="text"], input[type="password"], input[type="email"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0A0E1A;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #E5E7EB;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus {
+            outline: none;
+            border-color: #60A5FA;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #2563EB;
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #E5E7EB;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #4B5563;
+        }
+
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #059669;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .status.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10B981;
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #EF4444;
+        }
+
+        .status.info {
+            background: rgba(96, 165, 250, 0.15);
+            color: #60A5FA;
+        }
+
+        textarea {
+            width: 100%;
+            height: 500px;
+            padding: 12px;
+            background: #0A0E1A;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #E5E7EB;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #60A5FA;
+        }
+
+        .card-list {
+            background: #1A1F2E;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .card-item {
+            background: #0A0E1A;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-info h3 {
+            font-size: 16px;
+            color: #E5E7EB;
+            margin-bottom: 4px;
+        }
+
+        .card-info p {
+            font-size: 13px;
+            color: #9CA3AF;
+        }
+
+        .btn-delete {
+            background: #EF4444;
+            color: white;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .btn-delete:hover {
+            background: #DC2626;
+        }
+
+        .login-section {
+            max-width: 500px;
+            margin: 100px auto;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #6B7280;
+            margin-top: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #9CA3AF;
+        }
+
+        .card-list-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .card-search {
+            flex: 1 1 320px;
+        }
+
+        .card-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+            color: #9CA3AF;
+            font-size: 13px;
+        }
+
+        .page-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 로그인 전 -->
+    <div id="loginSection" class="login-section">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h1>혜핏 카드 마스터 관리</h1>
+            <p class="subtitle">PC에서 카드 데이터를 편리하게 관리하세요</p>
+        </div>
+
+        <div class="config-section">
+            <h2>관리자 로그인</h2>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="your-email@example.com"
+                        required
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="loginBtn"
+                    style="width: 100%;"
+                >
+                    <span id="loginBtnText">로그인</span>
+                </button>
+            </form>
+
+            <div id="loginStatus"></div>
+        </div>
+    </div>
+
+    <!-- 로그인 후 -->
+    <div id="mainSection" style="display: none;">
+        <div class="container">
+            <header>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h1>혜핏 카드 마스터 관리</h1>
+                        <p class="subtitle">카드 데이터 대량 등록 및 관리</p>
+                    </div>
+                    <button class="btn-secondary" onclick="logout()">로그아웃</button>
+                </div>
+            </header>
+
+            <!-- 엑셀 업로드 섹션 (권장) -->
+            <div class="config-section">
+                <h2>📊 엑셀로 등록 (권장)</h2>
+                <p class="hint" style="margin-bottom: 12px;">
+                    엑셀에서 표로 작성하고 CSV 파일로 저장한 후 업로드하세요. 가장 쉽고 빠릅니다!
+                </p>
+                <p class="hint" style="margin-bottom: 12px;">
+                    같은 카드/같은 티어의 추가 혜택 행은 카드 정보 칸을 비워도 윗행 값이 자동으로 이어집니다.
+                </p>
+                <p class="hint" style="margin-bottom: 12px;">
+                    티어순서는 입력하지 않아도 됩니다. 최소/최대 실적 구간 기준으로 자동 정렬됩니다.
+                </p>
+
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="downloadTemplate()">📥 엑셀 템플릿 다운로드</button>
+                    <label for="csvFileInput" class="btn-secondary" style="cursor: pointer; display: inline-block;">
+                        📤 CSV 파일 업로드
+                    </label>
+                    <input
+                        type="file"
+                        id="csvFileInput"
+                        accept=".csv"
+                        style="display: none;"
+                        onchange="handleCsvUpload(event)"
+                    >
+                    <button class="btn-success" onclick="importFromCsv()" id="csvImportBtn">☁️ DB 등록</button>
+                </div>
+
+                <div id="csvStatus"></div>
+
+                <div style="margin-top: 16px;">
+                    <div id="csvPreview" style="display: none;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600;">업로드된 데이터 미리보기</label>
+                        <div style="background: #0A0E1A; border: 1px solid #374151; border-radius: 8px; padding: 12px; max-height: 300px; overflow: auto;">
+                            <table id="csvPreviewTable" style="width: 100%; color: #E5E7EB; font-size: 12px; border-collapse: collapse;">
+                            </table>
+                        </div>
+                        <p class="hint" style="margin-top: 8px;">총 <span id="csvRowCount">0</span>개 행 (카드 데이터 확인 후 DB 등록 버튼을 클릭하세요)</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="card-list">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0;">등록된 카드 목록</h2>
+                    <button class="btn-secondary" onclick="loadCards()">🔄 새로고침</button>
+                </div>
+                <div class="card-list-toolbar">
+                    <input
+                        type="text"
+                        id="cardSearchInput"
+                        class="card-search"
+                        placeholder="카드명 또는 카드사 검색"
+                        autocomplete="off"
+                    >
+                </div>
+                <div id="cardList">
+                    <p style="color: #9CA3AF;">로딩 중...</p>
+                </div>
+                <div id="cardPagination" class="card-pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 설정
+        const SUPABASE_URL = 'https://vwfwbskvgkjblwrbdaou.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3Zndic2t2Z2tqYmx3cmJkYW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxODgzMDgsImV4cCI6MjA4NTc2NDMwOH0.9ksg54fHe__onKnCZyVXwkkp2sMRoPtQGj_7L2R3lKQ';
+
+        const VALID_CALC_CATEGORIES = new Set([
+            '외식', '교통', '쇼핑', '편의점', '온라인쇼핑', '마트', '기타'
+        ]);
+
+        const CATEGORY_KEYWORDS = [
+            { target: '교통', keys: ['교통', '대중교통', '지하철', '버스', '택시', '항공', '대한항공', '아시아나', '주유', '하이패스'] },
+            { target: '온라인쇼핑', keys: ['온라인', '인터넷', '쿠팡', '네이버', '배달앱', '앱결제'] },
+            { target: '편의점', keys: ['편의점'] },
+            { target: '마트', keys: ['마트', 'grocery', '식료품'] },
+            { target: '외식', keys: ['외식', '음식', '식당', '레스토랑', '카페', '스타벅스', '커피', '배달'] },
+            { target: '쇼핑', keys: ['쇼핑', '백화점', '아울렛', '면세점', '패션'] },
+        ];
+        const CSV_CARRY_FORWARD_FIELDS = [
+            '카드명', '카드사', '연회비', '이미지색상', '월최대혜택', '설명',
+            '티어명', '최소실적', '최대실적'
+        ];
+
+        let supabaseClient = null;
+        let currentUser = null;
+        let allCards = [];
+        let filteredCards = [];
+        let currentCardPage = 1;
+        const CARD_PAGE_SIZE = 8;
+        let cardControlsBound = false;
+
+        // 페이지 로드 시 Supabase 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('초기화 중...');
+            if (window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                console.log('Supabase 클라이언트 생성 완료');
+
+                // 기존 세션 확인
+                checkExistingSession();
+            } else {
+                showStatus('loginStatus', 'error', 'Supabase 라이브러리 로딩 실패. 페이지를 새로고침해주세요.');
+            }
+        });
+
+        // 기존 세션 확인
+        async function checkExistingSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    currentUser = session.user;
+                    showMainSection();
+                }
+            } catch (error) {
+                console.error('세션 확인 오류:', error);
+            }
+        }
+
+        // 로그인 폼 제출
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginBtnText = document.getElementById('loginBtnText');
+
+            if (!email || !password) {
+                showStatus('loginStatus', 'error', '이메일과 비밀번호를 입력해주세요.');
+                return;
+            }
+
+            // 로딩 상태
+            loginBtn.disabled = true;
+            loginBtnText.innerHTML = '<span class="spinner"></span> 로그인 중...';
+            showStatus('loginStatus', 'info', '로그인 처리 중...');
+
+            try {
+                console.log('로그인 시도:', email);
+
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
+
+                if (error) {
+                    console.error('로그인 에러:', error);
+                    throw error;
+                }
+
+                console.log('로그인 성공:', data);
+                currentUser = data.user;
+
+                // 성공 메시지 표시 후 메인 화면으로
+                showStatus('loginStatus', 'success', '✅ 로그인 성공!');
+                setTimeout(showMainSection, 500);
+
+            } catch (error) {
+                console.error('로그인 실패:', error);
+
+                // 에러 메시지 한글화
+                let errorMsg = '로그인 실패: ';
+                if (error.message.includes('Invalid login credentials')) {
+                    errorMsg = '이메일 또는 비밀번호가 올바르지 않습니다.';
+                } else if (error.message.includes('Email not confirmed')) {
+                    errorMsg = '이메일 인증이 필요합니다. Supabase 대시보드에서 사용자를 수동 인증하거나, Authentication > Providers > Email에서 "Confirm email"을 OFF로 설정해주세요.';
+                } else if (error.message.includes('Network')) {
+                    errorMsg = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+                } else {
+                    errorMsg += error.message;
+                }
+
+                showStatus('loginStatus', 'error', errorMsg);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtnText.textContent = '로그인';
+            }
+        }
+
+        // 메인 화면 표시
+        function showMainSection() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainSection').style.display = 'block';
+            bindCardControls();
+            loadCards();
+        }
+
+        // 로그아웃
+        async function logout() {
+            try {
+                await supabaseClient.auth.signOut();
+                currentUser = null;
+                document.getElementById('loginSection').style.display = 'block';
+                document.getElementById('mainSection').style.display = 'none';
+                document.getElementById('password').value = '';
+                showStatus('loginStatus', 'info', '로그아웃되었습니다.');
+            } catch (error) {
+                console.error('로그아웃 오류:', error);
+            }
+        }
+
+        // 상태 메시지 표시
+        function showStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function bindCardControls() {
+            if (cardControlsBound) return;
+            const input = document.getElementById('cardSearchInput');
+            if (!input) return;
+            input.addEventListener('input', () => {
+                currentCardPage = 1;
+                applyCardFilter();
+            });
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    currentCardPage = 1;
+                    applyCardFilter();
+                }
+            });
+            cardControlsBound = true;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function normalizeText(value) {
+            return String(value ?? '').trim().toLowerCase();
+        }
+
+        function parseSpendAmount(value) {
+            const source = String(value ?? '').trim();
+            if (!source) return null;
+
+            if (source.includes('무실적') || source.includes('실적없음')) {
+                return 0;
+            }
+
+            if (source.includes('만원')) {
+                const match = source.match(/-?\d[\d,]*(?:\.\d+)?/);
+                if (match) {
+                    const num = Number(match[0].replaceAll(',', ''));
+                    if (Number.isFinite(num)) return Math.round(num * 10000);
+                }
+            }
+
+            const compact = source.replaceAll(',', '').replaceAll('원', '').replaceAll(' ', '');
+            if (/^-?\d+$/.test(compact)) {
+                return parseInt(compact, 10);
+            }
+
+            const fallback = source.match(/-?\d[\d,]*/);
+            if (fallback) {
+                return parseInt(fallback[0].replaceAll(',', ''), 10);
+            }
+            return null;
+        }
+
+        function resolveTierRange(tierName, rawMin, rawMax) {
+            const name = String(tierName ?? '').trim();
+            let min = parseSpendAmount(rawMin);
+            let max = parseSpendAmount(rawMax);
+
+            if ((name.includes('무실적') || name.includes('실적없음')) && min == null) {
+                min = 0;
+            }
+
+            const rangeMatch = name.match(/(\d[\d,]*(?:\.\d+)?)\s*만원\s*[~\-]\s*(\d[\d,]*(?:\.\d+)?)\s*만원/);
+            if (rangeMatch) {
+                if (min == null) min = Math.round(Number(rangeMatch[1].replaceAll(',', '')) * 10000);
+                if (max == null) max = Math.round(Number(rangeMatch[2].replaceAll(',', '')) * 10000);
+            }
+
+            const aboveMatch = name.match(/(\d[\d,]*(?:\.\d+)?)\s*만원\s*이상/);
+            if (aboveMatch && min == null) {
+                min = Math.round(Number(aboveMatch[1].replaceAll(',', '')) * 10000);
+            }
+
+            const belowMatch = name.match(/(\d[\d,]*(?:\.\d+)?)\s*만원\s*미만/);
+            if (belowMatch) {
+                const bound = Math.round(Number(belowMatch[1].replaceAll(',', '')) * 10000);
+                if (min == null) min = 0;
+                if (max == null) max = bound - 1;
+            }
+
+            const underMatch = name.match(/(\d[\d,]*(?:\.\d+)?)\s*만원\s*이하/);
+            if (underMatch && max == null) {
+                max = Math.round(Number(underMatch[1].replaceAll(',', '')) * 10000);
+            }
+
+            return {
+                minPrevSpend: min ?? 0,
+                maxPrevSpend: max,
+            };
+        }
+
+        function isBlank(value) {
+            return String(value ?? '').trim() === '';
+        }
+
+        function normalizeCsvRowsWithCarryForward(rows) {
+            const carry = {};
+            return rows.map((raw) => {
+                const row = { ...raw };
+                for (const key of CSV_CARRY_FORWARD_FIELDS) {
+                    const nextValue = row[key];
+                    if (isBlank(nextValue)) {
+                        if (!isBlank(carry[key])) {
+                            row[key] = carry[key];
+                        }
+                    } else {
+                        carry[key] = nextValue;
+                    }
+                }
+                return row;
+            });
+        }
+
+        function resolveCalcCategory(rawCategory, manualCategory = '') {
+            const manual = String(manualCategory ?? '').trim();
+            if (VALID_CALC_CATEGORIES.has(manual)) {
+                return manual;
+            }
+
+            const source = normalizeText(rawCategory);
+            if (!source) return '기타';
+
+            if (source === '외식') return '외식';
+            if (source === '교통') return '교통';
+            if (source === '쇼핑') return '쇼핑';
+            if (source === '편의점') return '편의점';
+            if (source === '온라인쇼핑') return '온라인쇼핑';
+            if (source === '마트') return '마트';
+            if (source === '기타') return '기타';
+
+            for (const group of CATEGORY_KEYWORDS) {
+                for (const key of group.keys) {
+                    if (source.includes(key.toLowerCase())) {
+                        return group.target;
+                    }
+                }
+            }
+
+            return '기타';
+        }
+
+        function applyCardFilter() {
+            const query = (document.getElementById('cardSearchInput')?.value ?? '').trim().toLowerCase();
+            if (!query) {
+                filteredCards = [...allCards];
+            } else {
+                filteredCards = allCards.filter((card) => {
+                    const name = (card.card_name ?? '').toLowerCase();
+                    const issuer = (card.issuer ?? '').toLowerCase();
+                    return name.includes(query) || issuer.includes(query);
+                });
+            }
+            renderCardListPage();
+        }
+
+        function changeCardPage(nextPage) {
+            const totalPages = Math.max(1, Math.ceil(filteredCards.length / CARD_PAGE_SIZE));
+            if (nextPage < 1 || nextPage > totalPages) return;
+            currentCardPage = nextPage;
+            renderCardListPage();
+        }
+
+        function renderCardListPage() {
+            const listEl = document.getElementById('cardList');
+            const paginationEl = document.getElementById('cardPagination');
+            const totalCount = filteredCards.length;
+
+            if (totalCount === 0) {
+                listEl.innerHTML = '<p style="color: #9CA3AF; text-align: center; padding: 20px;">검색 결과가 없습니다</p>';
+                paginationEl.innerHTML = '<span>0개</span>';
+                return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(totalCount / CARD_PAGE_SIZE));
+            if (currentCardPage > totalPages) currentCardPage = totalPages;
+            const start = (currentCardPage - 1) * CARD_PAGE_SIZE;
+            const end = Math.min(start + CARD_PAGE_SIZE, totalCount);
+            const pageCards = filteredCards.slice(start, end);
+
+            listEl.innerHTML = pageCards.map(card => `
+                <div class="card-item">
+                    <div class="card-info">
+                        <h3>${escapeHtml(card.card_name)}</h3>
+                        <p>${escapeHtml(card.issuer)} · 연회비 ${(card.annual_fee ?? 0).toLocaleString()}원</p>
+                    </div>
+                    <button class="btn-delete" onclick="deleteCard('${card.id}')">삭제</button>
+                </div>
+            `).join('');
+
+            paginationEl.innerHTML = `
+                <span>${start + 1}-${end} / ${totalCount}개</span>
+                <div class="page-actions">
+                    <button class="btn-secondary page-btn" ${currentCardPage <= 1 ? 'disabled' : ''} onclick="changeCardPage(${currentCardPage - 1})">이전</button>
+                    <span>${currentCardPage} / ${totalPages}</span>
+                    <button class="btn-secondary page-btn" ${currentCardPage >= totalPages ? 'disabled' : ''} onclick="changeCardPage(${currentCardPage + 1})">다음</button>
+                </div>
+            `;
+        }
+
+        // 카드 목록 로드
+        async function loadCards() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('card_master')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allCards = data ?? [];
+                currentCardPage = 1;
+                applyCardFilter();
+            } catch (error) {
+                console.error('카드 로드 오류:', error);
+                document.getElementById('cardList').innerHTML =
+                    `<p style="color: #EF4444;">오류: ${error.message}</p>`;
+                document.getElementById('cardPagination').innerHTML = '';
+            }
+        }
+
+        // 카드 삭제
+        async function deleteCard(cardId) {
+            const card = allCards.find((item) => item.id === cardId);
+            const cardName = card?.card_name ?? '카드';
+            if (!confirm(`"${cardName}"을(를) 삭제하시겠습니까?\n이 카드의 혜택 규칙도 함께 삭제됩니다.`)) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('card_master')
+                    .delete()
+                    .eq('id', cardId);
+
+                if (error) throw error;
+
+                alert('✅ 삭제되었습니다.');
+                loadCards();
+            } catch (error) {
+                alert('❌ 삭제 실패: ' + error.message);
+            }
+        }
+
+        // ========================================
+        // CSV 업로드 관련 함수
+        // ========================================
+        let csvData = null;
+
+        // CSV 템플릿 다운로드
+        function downloadTemplate() {
+            const template = `카드명,카드사,연회비,이미지색상,월최대혜택,설명,티어명,최소실적,최대실적,카테고리,계산카테고리,혜택설명,혜택타입,혜택률,최대혜택금액,우선순위
+토스교통플러스,토스카드,0,#2563EB,30000,교통할인 카드,전월 30만원 이상,300000,699999,교통,교통,대중교통 10% 할인,discount,10,12000,1
+,,,,,,,,,편의점,편의점,편의점 5% 할인,discount,5,5000,2
+,,,,,,전월 70만원 이상,700000,,교통,교통,대중교통 15% 할인,discount,15,20000,1
+무실적 베이직,예시카드,0,#10B981,15000,무실적 카드 예시,전월실적없음,0,,온라인쇼핑,온라인쇼핑,온라인 1% 적립,point,1,0,1
+무실적 베이직,예시카드,0,#10B981,15000,무실적 카드 예시,100만원 이상,1000000,,교통,교통,교통 2% 적립,point,2,30000,1`;
+
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = '카드등록_템플릿.csv';
+            link.click();
+
+            showStatus('csvStatus', 'success', '✅ 템플릿 다운로드 완료. 티어순서는 자동 계산되며, 같은 카드/티어는 빈칸 상속이 됩니다.');
+        }
+
+        // CSV 파일 업로드 처리
+        function handleCsvUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    csvData = parseCsv(text);
+
+                    showCsvPreview(csvData);
+                    showStatus('csvStatus', 'success', `✅ CSV 파일을 읽었습니다. ${csvData.length}개 행 확인`);
+                } catch (error) {
+                    showStatus('csvStatus', 'error', '❌ CSV 파일 읽기 실패: ' + error.message);
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // CSV 파싱
+        function parseCsv(text) {
+            if (!window.Papa) {
+                throw new Error('CSV 파서(PapaParse) 로딩 실패');
+            }
+            const result = window.Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: (header) => String(header ?? '').trim(),
+            });
+            if (result.errors && result.errors.length > 0) {
+                throw new Error(`CSV 파싱 오류: ${result.errors[0].message}`);
+            }
+            return result.data ?? [];
+        }
+
+        // CSV 미리보기 표시
+        function showCsvPreview(data) {
+            if (data.length === 0) return;
+
+            const previewDiv = document.getElementById('csvPreview');
+            const table = document.getElementById('csvPreviewTable');
+            const rowCount = document.getElementById('csvRowCount');
+
+            // 헤더
+            const headers = Object.keys(data[0]);
+            let tableHtml = '<thead><tr>';
+            headers.forEach(h => {
+                tableHtml += `<th style="padding: 8px; border: 1px solid #374151; background: #1A1F2E;">${h}</th>`;
+            });
+            tableHtml += '</tr></thead><tbody>';
+
+            // 데이터 (최대 10개만 미리보기)
+            const previewCount = Math.min(data.length, 10);
+            for (let i = 0; i < previewCount; i++) {
+                tableHtml += '<tr>';
+                headers.forEach(h => {
+                    tableHtml += `<td style="padding: 8px; border: 1px solid #374151;">${data[i][h]}</td>`;
+                });
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody>';
+
+            table.innerHTML = tableHtml;
+            rowCount.textContent = data.length;
+            previewDiv.style.display = 'block';
+        }
+
+        // CSV에서 JSON으로 변환
+        function csvToJson(csvRows) {
+            const normalizedRows = normalizeCsvRowsWithCarryForward(csvRows);
+            const cardMap = new Map();
+            const stats = {
+                totalRows: normalizedRows.length,
+                totalRules: 0,
+                manualMapped: 0,
+                autoMapped: 0,
+                fallbackEtc: 0,
+            };
+
+            normalizedRows.forEach((row, index) => {
+                const rowNo = index + 2; // header + 1
+                const cardName = String(row['카드명'] ?? '').trim();
+                const issuer = String(row['카드사'] ?? '').trim();
+                const tierName = String(row['티어명'] ?? '').trim();
+                const tierRange = resolveTierRange(
+                    tierName,
+                    row['최소실적'],
+                    row['최대실적'],
+                );
+                const minPrevSpend = tierRange.minPrevSpend;
+                const maxPrevSpend = tierRange.maxPrevSpend;
+                const priority = parseInt(row['우선순위']) || 1;
+                const rawCategory = String(
+                    row['카테고리'] ?? row['혜택카테고리'] ?? ''
+                ).trim();
+                const ruleHint = String(
+                    row['혜택설명'] ?? row['혜택명'] ?? row['메모'] ?? ''
+                ).trim();
+
+                if (!cardName || !issuer) {
+                    throw new Error(`CSV ${rowNo}행: 카드명/카드사는 필수입니다.`);
+                }
+                if (!tierName) {
+                    throw new Error(`CSV ${rowNo}행: 티어명은 필수입니다.`);
+                }
+                if (!rawCategory && !ruleHint) {
+                    throw new Error(`CSV ${rowNo}행: 카테고리 또는 혜택설명 중 하나는 입력해주세요.`);
+                }
+                if (maxPrevSpend !== null && maxPrevSpend < minPrevSpend) {
+                    throw new Error(`CSV ${rowNo}행: 최대실적은 최소실적보다 작을 수 없습니다.`);
+                }
+
+                const cardKey = `${cardName}_${issuer}`;
+
+                if (!cardMap.has(cardKey)) {
+                    cardMap.set(cardKey, {
+                        card_name: cardName,
+                        issuer: issuer,
+                        annual_fee: parseInt(row['연회비']) || 0,
+                        image_color: row['이미지색상'] || '#3B82F6',
+                        monthly_benefit_cap: row['월최대혜택'] ? parseInt(row['월최대혜택']) : null,
+                        base_benefit_rate: 0,
+                        base_benefit_type: 'discount',
+                        description: row['설명'] || '',
+                        tiers: [],
+                        tierDefs: new Map(),
+                        tierRules: new Map(),
+                        tierRowNo: new Map(),
+                    });
+                }
+
+                const card = cardMap.get(cardKey);
+                const tierDefKey = `${minPrevSpend}::${maxPrevSpend ?? 'NULL'}`;
+                const existingTier = card.tierDefs.get(tierDefKey);
+                if (!existingTier) {
+                    card.tierDefs.set(tierDefKey, {
+                        tier_name: tierName,
+                        min_prev_spend: minPrevSpend,
+                        max_prev_spend: maxPrevSpend,
+                    });
+                    card.tierRules.set(tierDefKey, []);
+                    card.tierRowNo.set(tierDefKey, rowNo);
+                } else if (!existingTier.tier_name && tierName) {
+                    existingTier.tier_name = tierName;
+                }
+
+                const manualCalcCategory = row['계산카테고리'] || '';
+                const calcSource = rawCategory || ruleHint;
+                const calcCategory = resolveCalcCategory(calcSource, manualCalcCategory);
+                if (manualCalcCategory && VALID_CALC_CATEGORIES.has(String(manualCalcCategory).trim())) {
+                    stats.manualMapped += 1;
+                } else if (calcCategory === '기타') {
+                    stats.fallbackEtc += 1;
+                } else {
+                    stats.autoMapped += 1;
+                }
+                stats.totalRules += 1;
+
+                const tierRuleKey = `${tierDefKey}::${calcCategory}::${priority}`;
+                const tierRules = card.tierRules.get(tierDefKey);
+                const duplicatedRule = tierRules.find(
+                    (r) => `${tierDefKey}::${r.category}::${r.priority}` === tierRuleKey
+                );
+                if (duplicatedRule) {
+                    throw new Error(
+                        `CSV ${rowNo}행: "${cardName}" 카드의 티어 "${tierName}"에서 카테고리 "${calcCategory}" + 우선순위 ${priority}가 중복됩니다.`
+                    );
+                }
+                tierRules.push({
+                    category: calcCategory,
+                    benefit_type: row['혜택타입'] || 'discount',
+                    benefit_rate: parseFloat(row['혜택률']) || 0,
+                    max_benefit_amount: parseInt(row['최대혜택금액']) || 0,
+                    priority: priority
+                });
+            });
+
+            for (const cardData of cardMap.values()) {
+                const tierEntries = Array.from(cardData.tierDefs.entries()).map(([tierDefKey, tier]) => ({
+                    tierDefKey,
+                    ...tier,
+                    rules: cardData.tierRules.get(tierDefKey) ?? [],
+                    rowNo: cardData.tierRowNo.get(tierDefKey) ?? 0,
+                }));
+
+                tierEntries.sort((a, b) => {
+                    if (a.min_prev_spend !== b.min_prev_spend) {
+                        return a.min_prev_spend - b.min_prev_spend;
+                    }
+                    const aMax = a.max_prev_spend ?? Number.MAX_SAFE_INTEGER;
+                    const bMax = b.max_prev_spend ?? Number.MAX_SAFE_INTEGER;
+                    if (aMax !== bMax) {
+                        return aMax - bMax;
+                    }
+                    return a.tier_name.localeCompare(b.tier_name);
+                });
+
+                // 실적 구간 보정/검증
+                // max가 비어 있고 다음 구간이 있으면 자동으로 (다음 min - 1)로 채움
+                for (let i = 0; i < tierEntries.length - 1; i++) {
+                    const current = tierEntries[i];
+                    const next = tierEntries[i + 1];
+
+                    if (next.min_prev_spend <= current.min_prev_spend) {
+                        throw new Error(
+                            `CSV ${next.rowNo}행: "${cardData.card_name}" 카드의 최소실적이 오름차순이어야 합니다. (${current.tier_name} / ${next.tier_name})`
+                        );
+                    }
+
+                    if (current.max_prev_spend == null) {
+                        current.max_prev_spend = next.min_prev_spend - 1;
+                    }
+
+                    if (current.max_prev_spend < current.min_prev_spend) {
+                        throw new Error(
+                            `CSV ${current.rowNo}행: "${cardData.card_name}" 카드의 실적 구간이 유효하지 않습니다. (${current.tier_name})`
+                        );
+                    }
+
+                    if (current.max_prev_spend === next.min_prev_spend) {
+                        current.max_prev_spend = next.min_prev_spend - 1;
+                    }
+
+                    if (current.max_prev_spend > next.min_prev_spend) {
+                        current.max_prev_spend = next.min_prev_spend - 1;
+                        if (current.max_prev_spend < current.min_prev_spend) {
+                            throw new Error(
+                                `CSV ${next.rowNo}행: "${cardData.card_name}" 카드의 실적 구간이 유효하지 않습니다. (${current.tier_name} / ${next.tier_name})`
+                            );
+                        }
+                    }
+                }
+
+                for (const entry of tierEntries) {
+                    if (entry.max_prev_spend != null && entry.max_prev_spend < entry.min_prev_spend) {
+                        throw new Error(
+                            `CSV ${entry.rowNo}행: "${cardData.card_name}" 카드의 실적 구간이 유효하지 않습니다. (${entry.tier_name})`
+                        );
+                    }
+                }
+
+                cardData.tiers = tierEntries.map((entry, idx) => ({
+                    tier_name: entry.tier_name,
+                    min_prev_spend: entry.min_prev_spend,
+                    max_prev_spend: entry.max_prev_spend,
+                    tier_order: idx + 1,
+                    rules: entry.rules,
+                }));
+
+                delete cardData.tierDefs;
+                delete cardData.tierRules;
+                delete cardData.tierRowNo;
+            }
+
+            return {
+                cards: Array.from(cardMap.values()),
+                stats,
+            };
+        }
+
+        // CSV 데이터를 DB에 등록
+        async function importFromCsv() {
+            if (!csvData || csvData.length === 0) {
+                showStatus('csvStatus', 'error', '먼저 CSV 파일을 업로드해주세요.');
+                return;
+            }
+
+            const importBtn = document.getElementById('csvImportBtn');
+            importBtn.disabled = true;
+            showStatus('csvStatus', 'info', '⏳ CSV 데이터를 변환하고 DB에 등록 중...');
+
+            try {
+                const { cards, stats } = csvToJson(csvData);
+                console.log('변환된 카드 데이터:', cards);
+
+                let successCount = 0;
+
+                for (const cardData of cards) {
+                    // 카드 마스터 등록
+                    const { data: cardMaster, error: cardError } = await supabaseClient
+                        .from('card_master')
+                        .upsert({
+                            card_name: cardData.card_name,
+                            issuer: cardData.issuer,
+                            annual_fee: cardData.annual_fee,
+                            image_color: cardData.image_color,
+                            monthly_benefit_cap: cardData.monthly_benefit_cap,
+                            base_benefit_rate: cardData.base_benefit_rate,
+                            base_benefit_type: cardData.base_benefit_type,
+                            description: cardData.description,
+                        }, {
+                            onConflict: 'card_name,issuer'
+                        })
+                        .select()
+                        .single();
+
+                    if (cardError) throw cardError;
+
+                    // 기존 tiers 삭제
+                    await supabaseClient
+                        .from('card_benefit_tiers')
+                        .delete()
+                        .eq('card_id', cardMaster.id);
+
+                    // 새 tiers 등록
+                    for (const tier of cardData.tiers) {
+                        const { data: tierData, error: tierError } = await supabaseClient
+                            .from('card_benefit_tiers')
+                            .insert({
+                                card_id: cardMaster.id,
+                                tier_name: tier.tier_name,
+                                min_prev_spend: tier.min_prev_spend,
+                                max_prev_spend: tier.max_prev_spend,
+                                tier_order: tier.tier_order,
+                            })
+                            .select()
+                            .single();
+
+                        if (tierError) throw tierError;
+
+                        // rules 등록
+                        for (const rule of tier.rules) {
+                            const { error: ruleError } = await supabaseClient
+                                .from('card_tier_rules')
+                                .insert({
+                                    tier_id: tierData.id,
+                                    category: rule.category,
+                                    benefit_type: rule.benefit_type,
+                                    benefit_rate: rule.benefit_rate,
+                                    max_benefit_amount: rule.max_benefit_amount,
+                                    priority: rule.priority,
+                                });
+
+                            if (ruleError) throw ruleError;
+                        }
+                    }
+
+                    successCount++;
+                    showStatus('csvStatus', 'info', `⏳ 진행 중... ${successCount}/${cards.length}개 카드`);
+                }
+
+                showStatus(
+                    'csvStatus',
+                    'success',
+                    `✅ 완료! ${successCount}개 카드 등록 | CSV ${stats.totalRows}행 → 룰 ${stats.totalRules}개 (수동 ${stats.manualMapped}, 자동 ${stats.autoMapped}, 기타 ${stats.fallbackEtc})`
+                );
+                loadCards();
+
+                // 초기화
+                csvData = null;
+                document.getElementById('csvFileInput').value = '';
+                document.getElementById('csvPreview').style.display = 'none';
+
+            } catch (error) {
+                console.error('CSV 등록 오류:', error);
+                showStatus('csvStatus', 'error', '❌ 등록 실패: ' + error.message);
+            } finally {
+                importBtn.disabled = false;
+            }
+        }
+
+        // ========================================
+        // JSON 업로드 관련 함수
+        // ========================================
+
+        // 예시 JSON 로드
+        function loadSample() {
+            document.getElementById('jsonInput').value = `[
+  {
+    "card_name": "토스 교통 플러스",
+    "issuer": "토스카드",
+    "annual_fee": 0,
+    "image_color": "#2563EB",
+    "monthly_benefit_cap": 30000,
+    "base_benefit_rate": 0,
+    "base_benefit_type": "discount",
+    "description": "카드 라운지 참고 등록 예시",
+    "tiers": [
+      {
+        "tier_name": "30만원 이상",
+        "min_prev_spend": 300000,
+        "max_prev_spend": 699999,
+        "tier_order": 1,
+        "rules": [
+          {
+            "category": "교통",
+            "benefit_type": "discount",
+            "benefit_rate": 10,
+            "max_benefit_amount": 12000,
+            "priority": 1
+          },
+          {
+            "category": "편의점",
+            "benefit_type": "discount",
+            "benefit_rate": 5,
+            "max_benefit_amount": 5000,
+            "priority": 2
+          }
+        ]
+      },
+      {
+        "tier_name": "70만원 이상",
+        "min_prev_spend": 700000,
+        "max_prev_spend": null,
+        "tier_order": 2,
+        "rules": [
+          {
+            "category": "교통",
+            "benefit_type": "discount",
+            "benefit_rate": 15,
+            "max_benefit_amount": 20000,
+            "priority": 1
+          }
+        ]
+      }
+    ]
+  }
+]`;
+            showStatus('importStatus', 'info', '✅ 예시 JSON을 불러왔습니다.');
+        }
+
+        // JSON 검증
+        function validateJson() {
+            const input = document.getElementById('jsonInput').value.trim();
+            if (!input) {
+                showStatus('importStatus', 'error', 'JSON을 입력해주세요.');
+                return;
+            }
+
+            try {
+                const cards = JSON.parse(input);
+                if (!Array.isArray(cards)) {
+                    throw new Error('배열 형식이어야 합니다.');
+                }
+
+                for (let i = 0; i < cards.length; i++) {
+                    const card = cards[i];
+                    if (!card.card_name || !card.issuer) {
+                        throw new Error(`${i + 1}번째 카드: card_name, issuer는 필수입니다.`);
+                    }
+                    if (!Array.isArray(card.tiers) || card.tiers.length === 0) {
+                        throw new Error(`${card.card_name}: tiers를 1개 이상 입력해주세요.`);
+                    }
+                }
+
+                showStatus('importStatus', 'success', `✅ 검증 통과: ${cards.length}개 카드 등록 가능`);
+            } catch (error) {
+                showStatus('importStatus', 'error', '❌ JSON 검증 실패: ' + error.message);
+            }
+        }
+
+        // 카드 대량 등록
+        async function importCards() {
+            const input = document.getElementById('jsonInput').value.trim();
+            if (!input) {
+                showStatus('importStatus', 'error', 'JSON을 입력해주세요.');
+                return;
+            }
+
+            let cards;
+            try {
+                cards = JSON.parse(input);
+                if (!Array.isArray(cards)) {
+                    throw new Error('배열 형식이어야 합니다.');
+                }
+            } catch (error) {
+                showStatus('importStatus', 'error', '❌ JSON 파싱 실패: ' + error.message);
+                return;
+            }
+
+            const importBtn = document.getElementById('importBtn');
+            importBtn.disabled = true;
+            showStatus('importStatus', 'info', '⏳ DB 반영 중...');
+
+            try {
+                let successCount = 0;
+
+                for (const cardData of cards) {
+                    // 카드 마스터 등록
+                    const { data: cardMaster, error: cardError } = await supabaseClient
+                        .from('card_master')
+                        .upsert({
+                            card_name: cardData.card_name,
+                            issuer: cardData.issuer,
+                            annual_fee: cardData.annual_fee || 0,
+                            image_color: cardData.image_color || '#3B82F6',
+                            monthly_benefit_cap: cardData.monthly_benefit_cap || null,
+                            base_benefit_rate: cardData.base_benefit_rate || 0,
+                            base_benefit_type: cardData.base_benefit_type || 'discount',
+                            description: cardData.description || '',
+                        }, {
+                            onConflict: 'card_name,issuer'
+                        })
+                        .select()
+                        .single();
+
+                    if (cardError) throw cardError;
+
+                    // 기존 tiers 삭제
+                    await supabaseClient
+                        .from('card_benefit_tiers')
+                        .delete()
+                        .eq('card_id', cardMaster.id);
+
+                    // 새 tiers 등록
+                    for (const tier of cardData.tiers) {
+                        const { data: tierData, error: tierError } = await supabaseClient
+                            .from('card_benefit_tiers')
+                            .insert({
+                                card_id: cardMaster.id,
+                                tier_name: tier.tier_name,
+                                min_prev_spend: tier.min_prev_spend,
+                                max_prev_spend: tier.max_prev_spend,
+                                tier_order: tier.tier_order,
+                            })
+                            .select()
+                            .single();
+
+                        if (tierError) throw tierError;
+
+                        // rules 등록
+                        for (const rule of tier.rules) {
+                            const calcCategory = resolveCalcCategory(
+                                rule.category,
+                                rule.calc_category || ''
+                            );
+                            const { error: ruleError } = await supabaseClient
+                                .from('card_tier_rules')
+                                .insert({
+                                    tier_id: tierData.id,
+                                    category: calcCategory,
+                                    benefit_type: rule.benefit_type,
+                                    benefit_rate: rule.benefit_rate,
+                                    max_benefit_amount: rule.max_benefit_amount,
+                                    priority: rule.priority || 1,
+                                });
+
+                            if (ruleError) throw ruleError;
+                        }
+                    }
+
+                    successCount++;
+                    showStatus('importStatus', 'info', `⏳ 진행 중... ${successCount}/${cards.length}`);
+                }
+
+                showStatus('importStatus', 'success', `✅ 완료: ${successCount}개 카드가 DB에 반영되었습니다.`);
+                loadCards();
+            } catch (error) {
+                console.error('등록 오류:', error);
+                showStatus('importStatus', 'error', '❌ 등록 실패: ' + error.message);
+            } finally {
+                importBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
