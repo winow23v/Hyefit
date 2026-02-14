@@ -42,8 +42,8 @@ final isAdminProvider = Provider<bool>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return false;
   final isAdminByEmail = _adminEmails.contains(user.email);
-  final metadata = user.userMetadata;
-  final role = metadata?['role']?.toString().toLowerCase();
+  final metadata = user.appMetadata;
+  final role = metadata['role']?.toString().toLowerCase();
   final isAdminByRole = role == 'admin';
   return isAdminByEmail || isAdminByRole;
 });
@@ -63,7 +63,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
 
   AuthNotifier(this._authService, this._ref)
-      : super(const AsyncValue.data(null));
+    : super(const AsyncValue.data(null));
 
   Future<void> signIn({
     required String email,
@@ -112,5 +112,5 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
-  return AuthNotifier(ref.watch(authServiceProvider), ref);
-});
+      return AuthNotifier(ref.watch(authServiceProvider), ref);
+    });

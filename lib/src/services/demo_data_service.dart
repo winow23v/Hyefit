@@ -20,7 +20,12 @@ class DemoDataService {
       cardName: '신한 Deep Dream',
       issuer: '신한카드',
       annualFee: 12000,
+      annualFeeDomestic: 12000,
+      annualFeeOverseas: 15000,
       imageColor: '#2563EB',
+      brandOptions: const ['국내', 'Master', 'VISA'],
+      mainBenefits: const ['외식 10% 캐시백', '교통 10% 캐시백', '편의점 10% 캐시백'],
+      prevMonthSpendText: '직전 1개월 30만원 이상',
       createdAt: DateTime.now(),
       monthlyBenefitCap: 25000,
       baseBenefitRate: 0.5,
@@ -32,7 +37,12 @@ class DemoDataService {
       cardName: 'KB 국민 My WE:SH',
       issuer: 'KB국민카드',
       annualFee: 15000,
+      annualFeeDomestic: 15000,
+      annualFeeOverseas: 15000,
       imageColor: '#DC2626',
+      brandOptions: const ['국내', 'Master'],
+      mainBenefits: const ['쇼핑 최대 5% 포인트', '마트 최대 5% 캐시백'],
+      prevMonthSpendText: '직전 1개월 30만원 이상',
       createdAt: DateTime.now(),
       monthlyBenefitCap: 25000,
       baseBenefitRate: 0.3,
@@ -44,7 +54,12 @@ class DemoDataService {
       cardName: '삼성 taptap O',
       issuer: '삼성카드',
       annualFee: 10000,
+      annualFeeDomestic: 10000,
+      annualFeeOverseas: 10000,
       imageColor: '#7C3AED',
+      brandOptions: const ['국내', 'Master'],
+      mainBenefits: const ['간편결제 3~5% 캐시백'],
+      prevMonthSpendText: '전월 실적 없음',
       createdAt: DateTime.now(),
       monthlyBenefitCap: 15000,
       baseBenefitRate: 0.5,
@@ -173,10 +188,10 @@ class DemoDataService {
   ];
 
   static Map<String, List<CardBenefitTier>> get tiersByCardId => {
-        'demo-card-001': card1Tiers,
-        'demo-card-002': card2Tiers,
-        'demo-card-003': [], // 삼성 taptap O는 Tier 없이 기본 혜택만
-      };
+    'demo-card-001': card1Tiers,
+    'demo-card-002': card2Tiers,
+    'demo-card-003': [], // 삼성 taptap O는 Tier 없이 기본 혜택만
+  };
 
   // ── 사용자 카드 ──
   static final List<UserCard> userCards = [

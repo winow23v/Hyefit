@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../components/card_thumbnail.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/card_provider.dart';
@@ -42,8 +43,11 @@ class AdminCardListScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.credit_card_off_rounded,
-                      size: 64, color: AppColors.textHint),
+                  Icon(
+                    Icons.credit_card_off_rounded,
+                    size: 64,
+                    color: AppColors.textHint,
+                  ),
                   const SizedBox(height: 16),
                   Text('등록된 카드가 없습니다', style: AppTextStyles.body1),
                   const SizedBox(height: 8),
@@ -58,7 +62,6 @@ class AdminCardListScreen extends ConsumerWidget {
             itemCount: cards.length,
             itemBuilder: (context, index) {
               final card = cards[index];
-              final color = _parseColor(card.imageColor);
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -67,24 +70,17 @@ class AdminCardListScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () =>
-                        context.push('/admin/cards/${card.id}/tiers'),
+                    onTap: () => context.push('/admin/cards/${card.id}/tiers'),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          Container(
+                          CardThumbnail(
+                            cardMaster: card,
                             width: 48,
                             height: 48,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.credit_card_rounded,
-                              color: color,
-                              size: 24,
-                            ),
+                            borderRadius: 12,
+                            iconSize: 24,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -106,13 +102,22 @@ class AdminCardListScreen extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                color: AppColors.error, size: 20),
-                            onPressed: () =>
-                                _confirmDelete(context, ref, card.id, card.cardName),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: AppColors.error,
+                              size: 20,
+                            ),
+                            onPressed: () => _confirmDelete(
+                              context,
+                              ref,
+                              card.id,
+                              card.cardName,
+                            ),
                           ),
-                          const Icon(Icons.chevron_right_rounded,
-                              color: AppColors.textHint),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.textHint,
+                          ),
                         ],
                       ),
                     ),
@@ -132,7 +137,11 @@ class AdminCardListScreen extends ConsumerWidget {
   }
 
   void _confirmDelete(
-      BuildContext context, WidgetRef ref, String cardId, String cardName) {
+    BuildContext context,
+    WidgetRef ref,
+    String cardId,
+    String cardName,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -160,12 +169,5 @@ class AdminCardListScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Color _parseColor(String hex) {
-    final buffer = StringBuffer();
-    if (hex.length == 7) buffer.write('FF');
-    buffer.write(hex.replaceFirst('#', ''));
-    return Color(int.parse(buffer.toString(), radix: 16));
   }
 }

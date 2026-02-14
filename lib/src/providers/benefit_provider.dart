@@ -32,14 +32,6 @@ final benefitResultsProvider =
   return engine.calculateAll(userId: user.id, userCards: cards);
 });
 
-final recommendedCardProvider = Provider<BenefitResult?>((ref) {
-  final results = ref.watch(benefitResultsProvider);
-  final engine = ref.watch(benefitEngineProvider);
-  return results.whenOrNull(
-    data: (data) => engine.getRecommendedCard(data),
-  );
-});
-
 final totalSavingsProvider = Provider<int>((ref) {
   final results = ref.watch(benefitResultsProvider);
   final engine = ref.watch(benefitEngineProvider);

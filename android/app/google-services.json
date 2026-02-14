@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "721368690524",
+    "project_id": "hyefit-f6b60",
+    "storage_bucket": "hyefit-f6b60.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:721368690524:android:26ecae6a6168d0f28edb99",
+        "android_client_info": {
+          "package_name": "com.hyefit.hyefit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDHXUIEp63hN1sB8fS_YqaZJvTTUq9a30"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

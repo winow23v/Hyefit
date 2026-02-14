@@ -103,10 +103,45 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 class HyeFitApp extends ConsumerWidget {
-  const HyeFitApp({super.key});
+  final String? startupError;
+
+  const HyeFitApp({super.key, this.startupError});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (startupError != null) {
+      return MaterialApp(
+        title: '혜핏',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('앱 초기화 실패'),
+                  const SizedBox(height: 8),
+                  Text(
+                    startupError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final authBootstrap = ref.watch(authBootstrapProvider);
 
     if (authBootstrap.isLoading) {
@@ -138,15 +173,34 @@ class _MainShell extends ConsumerWidget {
 
   const _MainShell({required this.child});
 
+  int _getTabIndexFromLocation(String location) {
+    if (location.startsWith('/home')) return 0;
+    if (location.startsWith('/card')) return 1;
+    if (location.startsWith('/transaction')) return 2;
+    if (location.startsWith('/mypage')) return 3;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(_currentTabProvider);
+    final currentLocation = GoRouterState.of(context).matchedLocation;
+    final currentTab = _getTabIndexFromLocation(currentLocation);
+
+    // 현재 위치 기반으로 탭 인덱스 동기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(_currentTabProvider) != currentTab) {
+        ref.read(_currentTabProvider.notifier).state = currentTab;
+      }
+    });
 
     return Scaffold(
       body: child,
       bottomNavigationBar: HyefitBottomNav(
         currentIndex: currentTab,
         onTap: (index) {
+          // 같은 탭 클릭 시 무시
+          if (index == currentTab) return;
+
           ref.read(_currentTabProvider.notifier).state = index;
           switch (index) {
             case 0:

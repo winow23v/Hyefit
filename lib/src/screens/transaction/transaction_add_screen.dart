@@ -38,11 +38,12 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
   }
 
   Future<void> _selectDate() async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
+      firstDate: DateTime(now.year - 2, 1, 1), // 2년 전부터
+      lastDate: now,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(

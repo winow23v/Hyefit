@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
-import '../core/constants/categories.dart';
+import 'card_thumbnail.dart';
 import '../services/benefit_engine.dart';
 
 final _currencyFormat = NumberFormat('#,###', 'ko_KR');
@@ -33,10 +33,7 @@ class BenefitProgressCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: cardColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: cardColor.withValues(alpha: 0.3), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,13 +41,12 @@ class BenefitProgressCard extends StatelessWidget {
             // 카드 이름 + 발급사
             Row(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    shape: BoxShape.circle,
-                  ),
+                CardThumbnail(
+                  cardMaster: result.userCard.cardMaster,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  iconSize: 16,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -70,7 +66,7 @@ class BenefitProgressCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '혜택 적용 중',
+                      '혜택 받는 중',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -99,9 +95,7 @@ class BenefitProgressCard extends StatelessWidget {
                 minHeight: 8,
                 backgroundColor: AppColors.cardLight,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  result.isBenefitActive
-                      ? AppColors.success
-                      : cardColor,
+                  result.isBenefitActive ? AppColors.success : AppColors.primary,
                 ),
               ),
             ),
@@ -114,9 +108,7 @@ class BenefitProgressCard extends StatelessWidget {
               children: [
                 Text(
                   '${_currencyFormat.format(result.totalSpend)}원',
-                  style: AppTextStyles.numberSmall.copyWith(
-                    color: cardColor,
-                  ),
+                  style: AppTextStyles.numberSmall.copyWith(color: AppColors.primary),
                 ),
                 Text(
                   '/ ${_currencyFormat.format(result.minMonthlySpend)}원',
@@ -128,7 +120,7 @@ class BenefitProgressCard extends StatelessWidget {
             const SizedBox(height: 8),
 
             // 혜택까지 남은 금액 or 예상 혜택
-            if (!result.isBenefitActive)
+            if (!result.isBenefitActive && result.remainingForBenefit > 0)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -136,15 +128,37 @@ class BenefitProgressCard extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
+                  color: AppColors.info.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '혜택까지 ${_currencyFormat.format(result.remainingForBenefit)}원 남음',
+                  '다음 달 혜택을 위해\n이번 달 ${_currencyFormat.format(result.remainingForBenefit)}원 더 사용하세요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.info,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (!result.isBenefitActive && result.remainingForBenefit == 0)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '다음 달부터 혜택 적용 예정',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.warning,
+                    color: AppColors.success,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -161,7 +175,7 @@ class BenefitProgressCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '예상 혜택 ${_currencyFormat.format(result.estimatedBenefit)}원',
+                  '이번 달 받을 혜택 ${_currencyFormat.format(result.estimatedBenefit)}원',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -170,46 +184,6 @@ class BenefitProgressCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-
-            // 카테고리별 상세
-            if (result.ruleDetails.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Divider(color: AppColors.divider),
-              const SizedBox(height: 8),
-              ...result.ruleDetails.map((detail) {
-                final cat = Categories.findByKey(detail.rule.category);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(cat.icon, size: 14, color: cat.color),
-                      const SizedBox(width: 6),
-                      Text(
-                        cat.label,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${detail.rule.benefitTypeLabel} ${detail.appliedRate}%',
-                        style: AppTextStyles.caption,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_currencyFormat.format(detail.calculatedBenefit)}원',
-                        style: AppTextStyles.caption.copyWith(
-                          color: detail.calculatedBenefit > 0
-                              ? AppColors.success
-                              : AppColors.textHint,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
           ],
         ),
       ),

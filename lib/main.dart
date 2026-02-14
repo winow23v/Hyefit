@@ -21,15 +21,20 @@ Future<void> main() async {
     ),
   );
 
-  // 환경변수 로드
-  await dotenv.load(fileName: '.env');
+  String? startupError;
+  try {
+    // 환경변수 로드
+    await dotenv.load(fileName: '.env');
 
-  // Supabase 초기화
-  await SupabaseConfig.initialize();
+    // Supabase 초기화
+    await SupabaseConfig.initialize();
+  } catch (e) {
+    startupError = e.toString();
+  }
 
   runApp(
-    const ProviderScope(
-      child: HyeFitApp(),
+    ProviderScope(
+      child: HyeFitApp(startupError: startupError),
     ),
   );
 }

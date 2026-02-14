@@ -187,10 +187,7 @@ class _AdminCardWebImportScreenState
         _statusMessage = '등록 실패: $e';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('등록 실패: $e'),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text('등록 실패: $e'), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) {
@@ -293,9 +290,7 @@ class _AdminCardWebImportScreenState
                                   ),
                                 )
                               : const Icon(Icons.cloud_upload_rounded),
-                          label: Text(
-                            _isSubmitting ? '등록 중...' : 'DB 등록',
-                          ),
+                          label: Text(_isSubmitting ? '등록 중...' : 'DB 등록'),
                         ),
                       ],
                     ),
@@ -376,7 +371,16 @@ const _sampleImportJson = '''
     "card_name": "토스 교통 플러스",
     "issuer": "토스카드",
     "annual_fee": 0,
+    "annual_fee_domestic": 0,
+    "annual_fee_overseas": 0,
     "image_color": "#2563EB",
+    "card_image_url": "assets/cards/toss_transport_plus.png",
+    "brand_options": ["국내", "Master"],
+    "main_benefits": [
+      "버스/지하철 10% 할인",
+      "편의점 5% 할인"
+    ],
+    "prev_month_spend_text": "직전 1개월 30만원 이상",
     "monthly_benefit_cap": 30000,
     "base_benefit_rate": 0,
     "base_benefit_type": "discount",

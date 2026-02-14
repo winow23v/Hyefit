@@ -48,6 +48,94 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _handleForgotPassword() async {
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('비밀번호 재설정', style: AppTextStyles.heading3),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '가입하신 이메일 주소를 입력해주세요.\n비밀번호 재설정 링크를 보내드립니다.',
+              style: AppTextStyles.body2,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              style: AppTextStyles.body1,
+              decoration: const InputDecoration(
+                labelText: '이메일',
+                hintText: 'example@email.com',
+                prefixIcon: Icon(
+                  Icons.email_outlined,
+                  color: AppColors.textHint,
+                ),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              emailController.dispose();
+              Navigator.pop(ctx);
+            },
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = emailController.text.trim();
+              emailController.dispose();
+              Navigator.pop(ctx, text);
+            },
+            child: const Text('전송'),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null || email.isEmpty) return;
+    if (!email.contains('@')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('올바른 이메일 주소를 입력해주세요'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(authServiceProvider).resetPassword(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$email로 비밀번호 재설정 메일을 발송했습니다'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('메일 발송 실패: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   String _mapLoginError(String rawError) {
     final lower = rawError.toLowerCase();
     debugPrint('Login error raw: $rawError');
@@ -252,6 +340,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+
+                // 비밀번호 찾기
+                TextButton(
+                  onPressed: _handleForgotPassword,
+                  child: Text(
+                    '비밀번호를 잊으셨나요?',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),

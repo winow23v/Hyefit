@@ -49,24 +49,53 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
       );
     } else {
-      // 이메일 확인 안내 다이얼로그
+      // 가입 완료 안내 - 이메일 인증이 선택사항임을 명시
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surface,
           icon: const Icon(
-            Icons.mark_email_read_rounded,
+            Icons.check_circle_rounded,
             color: AppColors.success,
             size: 48,
           ),
           title: Text('가입 완료!', style: AppTextStyles.heading3),
-          content: Text(
-            '${_emailController.text.trim()}으로 인증 메일을 보냈습니다.\n\n'
-            '메일함에서 인증 링크를 클릭한 후 로그인해주세요.\n\n'
-            '(스팸함도 확인해주세요)',
-            style: AppTextStyles.body2,
-            textAlign: TextAlign.center,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '혜핏에 오신 것을 환영합니다!\n지금 바로 로그인하실 수 있습니다.',
+                style: AppTextStyles.body1,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.email_outlined,
+                      size: 16,
+                      color: AppColors.info,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_emailController.text.trim()}으로\n인증 메일을 보냈어요',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.info,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           actions: [
             ElevatedButton(
@@ -74,7 +103,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 Navigator.pop(ctx);
                 context.pop();
               },
-              child: const Text('로그인 화면으로'),
+              child: const Text('로그인하기'),
             ),
           ],
         ),

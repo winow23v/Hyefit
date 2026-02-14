@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../components/card_thumbnail.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/card_master.dart';
@@ -37,7 +38,9 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
 
   Future<void> _addCard(CardMaster card, String? nickname) async {
     try {
-      await ref.read(userCardsProvider.notifier).addCard(
+      await ref
+          .read(userCardsProvider.notifier)
+          .addCard(
             cardMasterId: card.id,
             cardName: card.cardName,
             issuer: card.issuer,
@@ -58,10 +61,7 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
           ? '카드 목록을 새로고침한 뒤 다시 시도해주세요.'
           : '카드 추가 실패: $e';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text(message), backgroundColor: AppColors.error),
       );
     }
   }
@@ -77,10 +77,7 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${card.issuer} ${card.cardName}',
-              style: AppTextStyles.body2,
-            ),
+            Text('${card.issuer} ${card.cardName}', style: AppTextStyles.body2),
             const SizedBox(height: 16),
             TextField(
               controller: _nicknameController,
@@ -171,10 +168,7 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
                           color: AppColors.textHint,
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          '원하는 카드를 검색해주세요',
-                          style: AppTextStyles.body2,
-                        ),
+                        Text('원하는 카드를 검색해주세요', style: AppTextStyles.body2),
                         const SizedBox(height: 4),
                         Text(
                           '카드명, 카드사, 혜택 키워드로 찾을 수 있어요',
@@ -197,15 +191,9 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
                           color: AppColors.textHint,
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          '"$query" 카드는 없습니다',
-                          style: AppTextStyles.body2,
-                        ),
+                        Text('"$query" 카드는 없습니다', style: AppTextStyles.body2),
                         const SizedBox(height: 4),
-                        Text(
-                          '다른 검색어로 다시 시도해주세요',
-                          style: AppTextStyles.caption,
-                        ),
+                        Text('다른 검색어로 다시 시도해주세요', style: AppTextStyles.caption),
                       ],
                     ),
                   );
@@ -241,18 +229,12 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
                         ),
                         child: Row(
                           children: [
-                            Container(
+                            CardThumbnail(
+                              cardMaster: card,
                               width: 48,
                               height: 48,
-                              decoration: BoxDecoration(
-                                color: cardColor.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.credit_card_rounded,
-                                color: cardColor,
-                                size: 24,
-                              ),
+                              borderRadius: 12,
+                              iconSize: 24,
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -301,9 +283,8 @@ class _CardAddScreenState extends ConsumerState<CardAddScreen> {
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
-              error: (e, _) => Center(
-                child: Text('오류: $e', style: AppTextStyles.body2),
-              ),
+              error: (e, _) =>
+                  Center(child: Text('오류: $e', style: AppTextStyles.body2)),
             ),
           ),
         ],

@@ -9,6 +9,21 @@ import '../models/user_card_status.dart';
 class CardService {
   final SupabaseClient _client = SupabaseConfig.client;
 
+  String _requireSignedInUser(String requestedUserId) {
+    final sessionUserId = _client.auth.currentUser?.id;
+    if (sessionUserId == null) {
+      throw StateError('로그인이 필요합니다.');
+    }
+    if (sessionUserId != requestedUserId) {
+      throw ArgumentError('요청한 사용자 ID가 현재 세션과 일치하지 않습니다.');
+    }
+    return sessionUserId;
+  }
+
+  static String _dateOnly(DateTime date) {
+    return date.toIso8601String().substring(0, 10);
+  }
+
   // ── 카드 마스터 (시스템 데이터) ──
 
   Future<List<CardMaster>> getAllCards() async {
@@ -33,7 +48,8 @@ class CardService {
         .from('card_benefit_tiers')
         .select('*, card_tier_rules(*)')
         .eq('card_id', cardId)
-        .order('tier_order');
+        .order('tier_order')
+        .order('priority', referencedTable: 'card_tier_rules');
     return data.map((e) => CardBenefitTier.fromJson(e)).toList();
   }
 
@@ -54,8 +70,8 @@ class CardService {
       }
     }
 
-    // 매칭되는 Tier가 없으면 가장 낮은 Tier 반환 (기본 혜택)
-    return tiers.first;
+    // 매칭되는 Tier가 없으면 혜택 비활성
+    return null;
   }
 
   /// 다음 Tier 정보 조회
@@ -79,7 +95,13 @@ class CardService {
     required String cardName,
     required String issuer,
     required int annualFee,
+    int? annualFeeDomestic,
+    int? annualFeeOverseas,
     String imageColor = '#7C83FD',
+    List<String> brandOptions = const [],
+    List<String> mainBenefits = const [],
+    String prevMonthSpendText = '',
+    String cardImageUrl = '',
     int monthlyBenefitCap = 0,
     double baseBenefitRate = 0,
     String baseBenefitType = 'cashback',
@@ -91,7 +113,13 @@ class CardService {
           'card_name': cardName,
           'issuer': issuer,
           'annual_fee': annualFee,
+          'annual_fee_domestic': annualFeeDomestic ?? annualFee,
+          'annual_fee_overseas': annualFeeOverseas ?? annualFee,
           'image_color': imageColor,
+          'brand_options': brandOptions,
+          'main_benefits': mainBenefits,
+          'prev_month_spend_text': prevMonthSpendText,
+          'card_image_url': cardImageUrl,
           'monthly_benefit_cap': monthlyBenefitCap,
           'base_benefit_rate': baseBenefitRate,
           'base_benefit_type': baseBenefitType,
@@ -107,7 +135,13 @@ class CardService {
     String? cardName,
     String? issuer,
     int? annualFee,
+    int? annualFeeDomestic,
+    int? annualFeeOverseas,
     String? imageColor,
+    List<String>? brandOptions,
+    List<String>? mainBenefits,
+    String? prevMonthSpendText,
+    String? cardImageUrl,
     int? monthlyBenefitCap,
     double? baseBenefitRate,
     String? baseBenefitType,
@@ -117,7 +151,19 @@ class CardService {
     if (cardName != null) updates['card_name'] = cardName;
     if (issuer != null) updates['issuer'] = issuer;
     if (annualFee != null) updates['annual_fee'] = annualFee;
+    if (annualFeeDomestic != null) {
+      updates['annual_fee_domestic'] = annualFeeDomestic;
+    }
+    if (annualFeeOverseas != null) {
+      updates['annual_fee_overseas'] = annualFeeOverseas;
+    }
     if (imageColor != null) updates['image_color'] = imageColor;
+    if (brandOptions != null) updates['brand_options'] = brandOptions;
+    if (mainBenefits != null) updates['main_benefits'] = mainBenefits;
+    if (prevMonthSpendText != null) {
+      updates['prev_month_spend_text'] = prevMonthSpendText;
+    }
+    if (cardImageUrl != null) updates['card_image_url'] = cardImageUrl;
     if (monthlyBenefitCap != null) {
       updates['monthly_benefit_cap'] = monthlyBenefitCap;
     }
@@ -213,19 +259,20 @@ class CardService {
     try {
       return await _importCardsViaRpc(normalizedCards);
     } on PostgrestException catch (e) {
-      // 신규 RPC 미적용 환경(구 스키마)에서는 기존 방식으로 폴백
+      // import는 RPC 트랜잭션 경로만 허용 (원자성 보장)
       final lower = e.message.toLowerCase();
       final isMissingRpc =
           e.code == 'PGRST202' ||
           lower.contains('could not find the function') ||
           lower.contains('upsert_cards_from_json');
-      if (!isMissingRpc) rethrow;
-
-      final imported = <CardMaster>[];
-      for (final cardJson in normalizedCards) {
-        imported.add(await _importCardFromJsonLegacy(cardJson));
+      if (isMissingRpc) {
+        throw StateError(
+          '카드 import RPC(upsert_cards_from_json)가 DB에 없습니다. '
+          'supabase/009_card_detail_fields.sql 또는 '
+          'supabase/CONSOLIDATED_SCHEMA.sql을 적용해주세요.',
+        );
       }
-      return imported;
+      rethrow;
     }
   }
 
@@ -265,97 +312,6 @@ class CardService {
       if (card != null) imported.add(card);
     }
     return imported;
-  }
-
-  Future<CardMaster> _importCardFromJsonLegacy(
-    Map<String, dynamic> normalizedJson,
-  ) async {
-    final cardName = (normalizedJson['card_name'] ?? '').toString().trim();
-    final issuer = (normalizedJson['issuer'] ?? '').toString().trim();
-    if (cardName.isEmpty || issuer.isEmpty) {
-      throw ArgumentError('card_name, issuer는 필수입니다.');
-    }
-
-    final annualFee = _toInt(normalizedJson['annual_fee']);
-    final imageColor = _normalizeColor(
-      (normalizedJson['image_color'] ?? '#7C83FD').toString(),
-    );
-    final monthlyBenefitCap = _toInt(normalizedJson['monthly_benefit_cap']);
-    final baseBenefitRate = _toDouble(normalizedJson['base_benefit_rate']);
-    final baseBenefitType = _normalizeBenefitType(
-      (normalizedJson['base_benefit_type'] ?? 'cashback').toString(),
-    );
-    final description = (normalizedJson['description'] ?? '').toString().trim();
-
-    final existingRows = await _client
-        .from('card_master')
-        .select('id')
-        .eq('card_name', cardName)
-        .eq('issuer', issuer)
-        .limit(1);
-
-    CardMaster cardMaster;
-    if (existingRows.isEmpty) {
-      cardMaster = await addCardMaster(
-        cardName: cardName,
-        issuer: issuer,
-        annualFee: annualFee,
-        imageColor: imageColor,
-        monthlyBenefitCap: monthlyBenefitCap,
-        baseBenefitRate: baseBenefitRate,
-        baseBenefitType: baseBenefitType,
-        description: description,
-      );
-    } else {
-      final existingId = existingRows.first['id'] as String;
-      cardMaster = await updateCardMaster(
-        cardId: existingId,
-        cardName: cardName,
-        issuer: issuer,
-        annualFee: annualFee,
-        imageColor: imageColor,
-        monthlyBenefitCap: monthlyBenefitCap,
-        baseBenefitRate: baseBenefitRate,
-        baseBenefitType: baseBenefitType,
-        description: description,
-      );
-
-      await _client
-          .from('card_benefit_tiers')
-          .delete()
-          .eq('card_id', cardMaster.id);
-    }
-
-    final tiers = (normalizedJson['tiers'] as List<dynamic>? ?? const []);
-    for (var i = 0; i < tiers.length; i++) {
-      final tierJson = Map<String, dynamic>.from(tiers[i] as Map);
-      final tier = await addBenefitTier(
-        cardId: cardMaster.id,
-        tierName: (tierJson['tier_name'] ?? '').toString(),
-        minPrevSpend: _toInt(tierJson['min_prev_spend']),
-        maxPrevSpend: _toNullableInt(tierJson['max_prev_spend']),
-        tierOrder: _toInt(tierJson['tier_order'], fallback: i + 1),
-      );
-
-      final rules = tierJson['rules'] as List<dynamic>? ?? const [];
-      for (var j = 0; j < rules.length; j++) {
-        final ruleJson = Map<String, dynamic>.from(rules[j] as Map);
-        await addTierRule(
-          tierId: tier.id,
-          category: _normalizeCategory(
-            (ruleJson['category'] ?? '기타').toString(),
-          ),
-          benefitType: _normalizeBenefitType(
-            (ruleJson['benefit_type'] ?? 'cashback').toString(),
-          ),
-          benefitRate: _toDouble(ruleJson['benefit_rate']),
-          maxBenefitAmount: _toInt(ruleJson['max_benefit_amount']),
-          priority: _toInt(ruleJson['priority'], fallback: j + 1),
-        );
-      }
-    }
-
-    return cardMaster;
   }
 
   static List<Map<String, dynamic>> _normalizeImportCards(
@@ -499,12 +455,46 @@ class CardService {
       current['tier_order'] = i + 1;
     }
 
+    final normalizedAnnualFee = _toInt(
+      rawCard['annual_fee'],
+      fallback: _toInt(rawCard['annual_fee_domestic']),
+    );
+
     return {
       'card_name': cardName,
       'issuer': issuer,
-      'annual_fee': _toInt(rawCard['annual_fee']),
+      'annual_fee': normalizedAnnualFee,
+      'annual_fee_domestic': _toInt(
+        rawCard['annual_fee_domestic'],
+        fallback: normalizedAnnualFee,
+      ),
+      'annual_fee_overseas': _toInt(
+        rawCard['annual_fee_overseas'],
+        fallback: _toInt(
+          rawCard['annual_fee_domestic'],
+          fallback: normalizedAnnualFee,
+        ),
+      ),
       'image_color': _normalizeColor(
         (rawCard['image_color'] ?? '#7C83FD').toString(),
+      ),
+      'brand_options': _normalizeStringList(
+        rawCard['brand_options'],
+        maxItems: 8,
+        maxLength: 30,
+      ),
+      'main_benefits': _normalizeStringList(
+        rawCard['main_benefits'],
+        maxItems: 8,
+        maxLength: 80,
+      ),
+      'prev_month_spend_text': _normalizeLine(
+        rawCard['prev_month_spend_text'],
+        maxLength: 160,
+      ),
+      'card_image_url': _normalizeLine(
+        rawCard['card_image_url'],
+        maxLength: 500,
       ),
       'monthly_benefit_cap': _toInt(rawCard['monthly_benefit_cap']),
       'base_benefit_rate': _toDouble(rawCard['base_benefit_rate']),
@@ -572,6 +562,48 @@ class CardService {
     return '#7C83FD';
   }
 
+  static List<String> _normalizeStringList(
+    dynamic value, {
+    int maxItems = 8,
+    int maxLength = 80,
+  }) {
+    final list = <String>[];
+
+    void addValue(String raw) {
+      final normalized = raw.trim();
+      if (normalized.isEmpty) return;
+      if (list.contains(normalized)) return;
+      list.add(
+        normalized.length > maxLength
+            ? normalized.substring(0, maxLength)
+            : normalized,
+      );
+    }
+
+    if (value is List) {
+      for (final item in value) {
+        addValue(item.toString());
+      }
+    } else if (value is String && value.trim().isNotEmpty) {
+      final tokens = value.split(RegExp(r'[\n,/|]'));
+      for (final token in tokens) {
+        addValue(token);
+      }
+    }
+
+    if (list.length > maxItems) {
+      return list.sublist(0, maxItems);
+    }
+    return list;
+  }
+
+  static String _normalizeLine(dynamic value, {int maxLength = 200}) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength);
+  }
+
   static String _normalizeCategory(String raw) {
     final key = raw.trim().toLowerCase();
     const map = {
@@ -631,11 +663,12 @@ class CardService {
   // ── 사용자 카드 ──
 
   Future<List<UserCard>> getUserCards(String userId) async {
+    final resolvedUserId = _requireSignedInUser(userId);
     try {
       final data = await _client
           .from('user_cards')
           .select('*, card_master(*)')
-          .eq('user_id', userId)
+          .eq('user_id', resolvedUserId)
           .order('display_order')
           .order('created_at');
       return data.map((e) => UserCard.fromJson(e)).toList();
@@ -643,7 +676,7 @@ class CardService {
       final data = await _client
           .from('user_cards')
           .select('*, card_master(*)')
-          .eq('user_id', userId)
+          .eq('user_id', resolvedUserId)
           .order('created_at');
       return data.map((e) => UserCard.fromJson(e)).toList();
     }
@@ -656,6 +689,7 @@ class CardService {
     String? issuer,
     String? nickname,
   }) async {
+    final resolvedUserId = _requireSignedInUser(userId);
     final resolvedCardMasterId = await _resolveCardMasterId(
       cardMasterId: cardMasterId,
       cardName: cardName,
@@ -666,7 +700,7 @@ class CardService {
       final latestOrder = await _client
           .from('user_cards')
           .select('display_order')
-          .eq('user_id', userId)
+          .eq('user_id', resolvedUserId)
           .order('display_order', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -677,7 +711,7 @@ class CardService {
       final data = await _client
           .from('user_cards')
           .insert({
-            'user_id': userId,
+            'user_id': resolvedUserId,
             'card_master_id': resolvedCardMasterId,
             'nickname': nickname,
             'display_order': nextOrder,
@@ -689,7 +723,7 @@ class CardService {
       final data = await _client
           .from('user_cards')
           .insert({
-            'user_id': userId,
+            'user_id': resolvedUserId,
             'card_master_id': resolvedCardMasterId,
             'nickname': nickname,
           })
@@ -751,14 +785,20 @@ class CardService {
     required String userId,
     required List<String> orderedUserCardIds,
   }) async {
+    final resolvedUserId = _requireSignedInUser(userId);
+    if (orderedUserCardIds.isEmpty) return;
+
     try {
+      final updates = <Map<String, dynamic>>[];
       for (var i = 0; i < orderedUserCardIds.length; i++) {
-        await _client
-            .from('user_cards')
-            .update({'display_order': i})
-            .eq('id', orderedUserCardIds[i])
-            .eq('user_id', userId);
+        updates.add({
+          'id': orderedUserCardIds[i],
+          'user_id': resolvedUserId,
+          'display_order': i,
+        });
       }
+
+      await _client.from('user_cards').upsert(updates, onConflict: 'id');
     } on PostgrestException catch (_) {
       // display_order 컬럼이 없는 구버전 스키마에서는 로컬 정렬만 유지
     }
@@ -774,7 +814,7 @@ class CardService {
         .from('user_card_status')
         .select()
         .eq('user_card_id', userCardId)
-        .eq('period_start', periodStart.toIso8601String().substring(0, 10))
+        .eq('period_start', _dateOnly(periodStart))
         .maybeSingle();
     return data != null ? UserCardStatus.fromJson(data) : null;
   }
@@ -792,8 +832,8 @@ class CardService {
           'user_card_id': userCardId,
           'current_spend': currentSpend,
           'current_benefit': currentBenefit,
-          'period_start': periodStart.toIso8601String().substring(0, 10),
-          'period_end': periodEnd.toIso8601String().substring(0, 10),
+          'period_start': _dateOnly(periodStart),
+          'period_end': _dateOnly(periodEnd),
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_card_id,period_start')
         .select()
@@ -802,20 +842,19 @@ class CardService {
   }
 
   Future<List<UserCardStatus>> getAllCardStatuses(String userId) async {
-    final userCards = await getUserCards(userId);
+    final resolvedUserId = _requireSignedInUser(userId);
+    final userCards = await getUserCards(resolvedUserId);
+    if (userCards.isEmpty) return [];
+
     final now = DateTime.now();
     final periodStart = DateTime(now.year, now.month, 1);
+    final userCardIds = userCards.map((card) => card.id).toList();
 
-    final List<UserCardStatus> statuses = [];
-    for (final card in userCards) {
-      final status = await getCardStatus(
-        userCardId: card.id,
-        periodStart: periodStart,
-      );
-      if (status != null) {
-        statuses.add(status);
-      }
-    }
-    return statuses;
+    final rows = await _client
+        .from('user_card_status')
+        .select()
+        .inFilter('user_card_id', userCardIds)
+        .eq('period_start', _dateOnly(periodStart));
+    return rows.map((row) => UserCardStatus.fromJson(row)).toList();
   }
 }

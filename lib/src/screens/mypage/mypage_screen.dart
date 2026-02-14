@@ -122,7 +122,7 @@ class MyPageScreen extends ConsumerWidget {
           // 앱 버전
           Center(
             child: Text(
-              '혜핏 v1.0.0',
+              '혜핏 v1.2.1',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textHint,
               ),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../components/card_thumbnail.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/user_card.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/card_provider.dart';
+import 'card_add_screen.dart';
 
 class CardListScreen extends ConsumerStatefulWidget {
   const CardListScreen({super.key});
@@ -45,9 +48,9 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
     setState(() => _isApplyingOrder = true);
 
     try {
-      await ref.read(userCardsProvider.notifier).saveCardOrder(
-            _draftCards.map((e) => e.id).toList(),
-          );
+      await ref
+          .read(userCardsProvider.notifier)
+          .saveCardOrder(_draftCards.map((e) => e.id).toList());
       if (!mounted) return;
       setState(() {
         _isOrderEditMode = false;
@@ -135,6 +138,7 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
       body: userCards.when(
         data: (cards) {
           if (cards.isEmpty) {
+            final isGuest = ref.watch(isGuestModeProvider);
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -153,9 +157,26 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '마이페이지에서 카드를 추가해주세요',
+                    isGuest
+                        ? '회원가입하고 카드를 추가해보세요'
+                        : '지금 바로 카드를 추가해보세요',
                     style: AppTextStyles.caption,
                   ),
+                  if (!isGuest) ...[
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            fullscreenDialog: true,
+                            builder: (_) => const CardAddScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.add_card_rounded),
+                      label: const Text('카드 추가하기'),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -216,9 +237,8 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (error, _) => Center(
-          child: Text('오류: $error', style: AppTextStyles.body2),
-        ),
+        error: (error, _) =>
+            Center(child: Text('오류: $error', style: AppTextStyles.body2)),
       ),
     );
   }
@@ -236,10 +256,7 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cardColor.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: cardColor.withValues(alpha: 0.3), width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -250,18 +267,12 @@ class _CardListScreenState extends ConsumerState<CardListScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Container(
+                CardThumbnail(
+                  cardMaster: card.cardMaster,
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(
-                    color: cardColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.credit_card_rounded,
-                    color: cardColor,
-                    size: 24,
-                  ),
+                  borderRadius: 12,
+                  iconSize: 24,
                 ),
                 const SizedBox(width: 16),
                 Expanded(

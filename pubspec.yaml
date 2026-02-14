@@ -1,7 +1,7 @@
 name: hyefit
 description: "혜핏 - 카드 혜택 자동 계산 금융비서"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.2.1+4
 
 environment:
   sdk: ^3.8.1
@@ -27,3 +27,4 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/cards/

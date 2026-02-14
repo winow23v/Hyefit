@@ -46,3 +46,9 @@ app.*.map.json
 
 # Environment variables
 .env
+
+# CI signing artifacts
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+ios/ExportOptions.plist

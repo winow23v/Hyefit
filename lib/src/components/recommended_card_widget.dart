@@ -77,11 +77,17 @@ class RecommendedCardWidget extends StatelessWidget {
               '${_currencyFormat.format(result.estimatedBenefit)}원',
               AppColors.success,
             )
+          else if (result.remainingForBenefit > 0)
+            _buildInfoRow(
+              '다음 달 혜택까지',
+              '${_currencyFormat.format(result.remainingForBenefit)}원 더 필요',
+              AppColors.info,
+            )
           else
             _buildInfoRow(
-              '혜택까지 남은 금액',
-              '${_currencyFormat.format(result.remainingForBenefit)}원',
-              AppColors.warning,
+              '다음 달 혜택',
+              '적용 예정',
+              AppColors.success,
             ),
           const SizedBox(height: 8),
           _buildInfoRow(

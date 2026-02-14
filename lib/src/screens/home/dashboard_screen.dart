@@ -8,6 +8,9 @@ import '../../providers/benefit_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../components/benefit_progress_card.dart';
 import '../../components/recommended_card_widget.dart';
+import '../../services/benefit_engine.dart';
+import '../card/card_add_screen.dart';
+import 'widgets/dashboard_card_detail_bottom_sheet.dart';
 
 final _currencyFormat = NumberFormat('#,###', 'ko_KR');
 final _monthFormat = DateFormat('yyyy년 M월', 'ko_KR');
@@ -38,7 +41,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final benefitResults = ref.watch(benefitResultsProvider);
-    final recommended = ref.watch(recommendedCardProvider);
+    final benefitEngine = ref.watch(benefitEngineProvider);
+    final recommended = benefitResults.whenOrNull(
+      data: benefitEngine.getRecommendedCard,
+    );
     final totalSavings = ref.watch(totalSavingsProvider);
     final refreshDashboard = ref.watch(dashboardRefreshProvider);
     final now = DateTime.now();
@@ -46,9 +52,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isGuest = ref.watch(isGuestModeProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: null,
-      ),
+      appBar: AppBar(title: null),
       body: RefreshIndicator(
         onRefresh: () => refreshDashboard(),
         color: AppColors.primary,
@@ -104,10 +108,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _monthFormat.format(now),
-                      style: AppTextStyles.body2,
-                    ),
+                    Text(_monthFormat.format(now), style: AppTextStyles.body2),
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -123,7 +124,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(
-                            '원 절약',
+                            '원 아꼈어요',
                             style: AppTextStyles.body1.copyWith(
                               color: AppColors.success,
                             ),
@@ -142,7 +143,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             if (recommended != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('오늘의 추천 카드', style: AppTextStyles.heading3),
+                child: Text('오늘 쓰면 좋은 카드', style: AppTextStyles.heading3),
               ),
               const SizedBox(height: 12),
               RecommendedCardWidget(result: recommended),
@@ -152,7 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             // 카드별 혜택 진행률
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('카드별 혜택 현황', style: AppTextStyles.heading3),
+              child: Text('내 카드 혜택', style: AppTextStyles.heading3),
             ),
             const SizedBox(height: 8),
 
@@ -162,7 +163,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   return _buildEmptyState();
                 }
                 if (results.length == 1) {
-                  return BenefitProgressCard(result: results.first);
+                  return BenefitProgressCard(
+                    result: results.first,
+                    onTap: () => _showCardDetailModal(context, results.first),
+                  );
                 }
 
                 return Column(
@@ -183,6 +187,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               horizontal: 6,
                               vertical: 8,
                             ),
+                            onTap: () =>
+                                _showCardDetailModal(context, results[index]),
                           );
                         },
                       ),
@@ -212,9 +218,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               loading: () => const Padding(
                 padding: EdgeInsets.all(40),
                 child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                  ),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
               ),
               error: (error, _) => Padding(
@@ -228,10 +232,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         size: 40,
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        '데이터를 불러올 수 없습니다',
-                        style: AppTextStyles.body1,
-                      ),
+                      Text('정보를 불러올 수 없어요', style: AppTextStyles.body1),
                       const SizedBox(height: 4),
                       Text(
                         '$error',
@@ -250,16 +251,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isGuest = ref.watch(isGuestModeProvider);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.divider,
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.divider, width: 1),
       ),
       child: Column(
         children: [
@@ -270,18 +270,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '등록된 카드가 없습니다',
-            style: AppTextStyles.body1.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            '아직 등록한 카드가 없어요',
+            style: AppTextStyles.body1.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 4),
-          Text(
-            '카드 탭에서 카드를 등록해보세요',
-            style: AppTextStyles.caption,
-          ),
+          Text('카드를 등록하고 혜택을 확인해보세요', style: AppTextStyles.caption),
+          if (!isGuest) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => const CardAddScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add_card_rounded),
+              label: const Text('첫 카드 등록하기'),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  void _showCardDetailModal(BuildContext context, BenefitResult result) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => DashboardCardDetailBottomSheet(result: result),
     );
   }
 }

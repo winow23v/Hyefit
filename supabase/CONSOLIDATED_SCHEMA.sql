@@ -17,13 +17,28 @@ CREATE TABLE IF NOT EXISTS card_master (
   card_name TEXT NOT NULL,
   issuer TEXT NOT NULL,
   annual_fee INTEGER NOT NULL DEFAULT 0,
+  annual_fee_domestic INTEGER NOT NULL DEFAULT 0,
+  annual_fee_overseas INTEGER NOT NULL DEFAULT 0,
   image_color TEXT DEFAULT '#7C83FD',
+  brand_options TEXT[] NOT NULL DEFAULT '{}',
+  main_benefits TEXT[] NOT NULL DEFAULT '{}',
+  prev_month_spend_text TEXT NOT NULL DEFAULT '',
+  card_image_url TEXT NOT NULL DEFAULT '',
   monthly_benefit_cap INTEGER DEFAULT 0,
   base_benefit_rate NUMERIC(5,2) DEFAULT 0,
   base_benefit_type TEXT DEFAULT 'cashback',
   description TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT card_master_card_name_issuer_key UNIQUE (card_name, issuer)
+  CONSTRAINT card_master_card_name_issuer_key UNIQUE (card_name, issuer),
+  CONSTRAINT card_master_annual_fee_non_negative CHECK (annual_fee >= 0),
+  CONSTRAINT card_master_annual_fee_domestic_non_negative CHECK (annual_fee_domestic >= 0),
+  CONSTRAINT card_master_annual_fee_overseas_non_negative CHECK (annual_fee_overseas >= 0),
+  CONSTRAINT card_master_brand_options_max_len CHECK (COALESCE(array_length(brand_options, 1), 0) <= 8),
+  CONSTRAINT card_master_main_benefits_max_len CHECK (COALESCE(array_length(main_benefits, 1), 0) <= 8),
+  CONSTRAINT card_master_monthly_cap_non_negative CHECK (monthly_benefit_cap >= 0),
+  CONSTRAINT card_master_base_rate_range CHECK (base_benefit_rate >= 0 AND base_benefit_rate <= 100),
+  CONSTRAINT card_master_base_type_allowed CHECK (base_benefit_type IN ('cashback', 'point', 'discount', 'mileage')),
+  CONSTRAINT card_master_image_color_hex CHECK (image_color ~ '^#[0-9A-Fa-f]{6}$')
 );
 
 -- 2. 카드 혜택 Tier (전월 실적 구간)
@@ -33,9 +48,12 @@ CREATE TABLE IF NOT EXISTS card_benefit_tiers (
   tier_name TEXT NOT NULL DEFAULT '',
   min_prev_spend INTEGER NOT NULL DEFAULT 0,
   max_prev_spend INTEGER,
-  tier_order INTEGER NOT NULL DEFAULT 0,
+  tier_order INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT card_benefit_tiers_card_id_tier_order_key UNIQUE (card_id, tier_order)
+  CONSTRAINT card_benefit_tiers_card_id_tier_order_key UNIQUE (card_id, tier_order),
+  CONSTRAINT card_benefit_tiers_min_non_negative CHECK (min_prev_spend >= 0),
+  CONSTRAINT card_benefit_tiers_max_not_less_than_min CHECK (max_prev_spend IS NULL OR max_prev_spend >= min_prev_spend),
+  CONSTRAINT card_benefit_tiers_order_positive CHECK (tier_order > 0)
 );
 
 -- 3. Tier별 카테고리 혜택 규칙
@@ -46,9 +64,14 @@ CREATE TABLE IF NOT EXISTS card_tier_rules (
   benefit_type TEXT NOT NULL DEFAULT 'cashback',
   benefit_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
   max_benefit_amount INTEGER NOT NULL DEFAULT 0,
-  priority INTEGER NOT NULL DEFAULT 0,
+  priority INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT card_tier_rules_tier_id_category_priority_key UNIQUE (tier_id, category, priority)
+  CONSTRAINT card_tier_rules_tier_id_category_priority_key UNIQUE (tier_id, category, priority),
+  CONSTRAINT card_tier_rules_category_not_blank CHECK (BTRIM(category) <> ''),
+  CONSTRAINT card_tier_rules_benefit_type_allowed CHECK (benefit_type IN ('cashback', 'point', 'discount', 'mileage')),
+  CONSTRAINT card_tier_rules_benefit_rate_range CHECK (benefit_rate >= 0 AND benefit_rate <= 100),
+  CONSTRAINT card_tier_rules_max_benefit_non_negative CHECK (max_benefit_amount >= 0),
+  CONSTRAINT card_tier_rules_priority_positive CHECK (priority > 0)
 );
 
 -- 4. 사용자 카드 보유 정보
@@ -59,7 +82,9 @@ CREATE TABLE IF NOT EXISTS user_cards (
   nickname TEXT,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_id, card_master_id)
+  CONSTRAINT user_cards_user_card_unique UNIQUE(user_id, card_master_id),
+  CONSTRAINT user_cards_id_user_id_key UNIQUE (id, user_id),
+  CONSTRAINT user_cards_display_order_non_negative CHECK (display_order >= 0)
 );
 
 -- 5. 사용자 카드 상태 (공여기간 내 누적)
@@ -71,19 +96,28 @@ CREATE TABLE IF NOT EXISTS user_card_status (
   period_start DATE NOT NULL,
   period_end DATE NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_card_id, period_start)
+  CONSTRAINT user_card_status_unique_period UNIQUE(user_card_id, period_start),
+  CONSTRAINT user_card_status_spend_non_negative CHECK (current_spend >= 0),
+  CONSTRAINT user_card_status_benefit_non_negative CHECK (current_benefit >= 0),
+  CONSTRAINT user_card_status_period_valid CHECK (period_end >= period_start)
 );
 
 -- 6. 소비 내역
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  user_card_id UUID NOT NULL REFERENCES user_cards(id) ON DELETE CASCADE,
+  user_card_id UUID NOT NULL,
   amount INTEGER NOT NULL,
   category TEXT NOT NULL,
   memo TEXT,
   transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT transactions_user_card_owner_fk
+    FOREIGN KEY (user_card_id, user_id)
+    REFERENCES user_cards(id, user_id)
+    ON DELETE CASCADE,
+  CONSTRAINT transactions_amount_positive CHECK (amount > 0),
+  CONSTRAINT transactions_category_not_blank CHECK (BTRIM(category) <> '')
 );
 
 -- ============================================
@@ -106,47 +140,63 @@ CREATE INDEX IF NOT EXISTS idx_user_cards_user_order ON user_cards(user_id, disp
 
 -- user_card_status 인덱스
 CREATE INDEX IF NOT EXISTS idx_user_card_status_card_id ON user_card_status(user_card_id);
+CREATE INDEX IF NOT EXISTS idx_user_card_status_period ON user_card_status(user_card_id, period_start);
 
 -- transactions 인덱스
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_card_date
+  ON transactions(user_id, user_card_id, transaction_date);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_card_category_date
+  ON transactions(user_id, user_card_id, category, transaction_date);
 
 -- ============================================
 -- SECTION 3: RLS 정책
 -- ============================================
+
+-- 관리자 판별 함수 (서버측 권한 강제)
+CREATE OR REPLACE FUNCTION public.is_admin_user()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+AS $$
+  SELECT
+    LOWER(COALESCE(auth.jwt() ->> 'email', '')) = 'winow23v@naver.com'
+    OR LOWER(COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
+$$;
 
 -- card_master: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_master ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "card_master_select" ON card_master
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "card_master_insert" ON card_master
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_master_update" ON card_master
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_master_delete" ON card_master
-  FOR DELETE TO authenticated USING (true);
+  FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- card_benefit_tiers: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_benefit_tiers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "card_benefit_tiers_select" ON card_benefit_tiers
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "card_benefit_tiers_insert" ON card_benefit_tiers
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_benefit_tiers_update" ON card_benefit_tiers
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_benefit_tiers_delete" ON card_benefit_tiers
-  FOR DELETE TO authenticated USING (true);
+  FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- card_tier_rules: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_tier_rules ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "card_tier_rules_select" ON card_tier_rules
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "card_tier_rules_insert" ON card_tier_rules
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_tier_rules_update" ON card_tier_rules
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
 CREATE POLICY "card_tier_rules_delete" ON card_tier_rules
-  FOR DELETE TO authenticated USING (true);
+  FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- user_cards: 본인 데이터만
 ALTER TABLE user_cards ENABLE ROW LEVEL SECURITY;
@@ -209,7 +259,13 @@ SELECT
   ctr.benefit_type,
   ctr.benefit_rate,
   ctr.max_benefit_amount,
-  ctr.priority
+  ctr.priority,
+  cm.annual_fee_domestic,
+  cm.annual_fee_overseas,
+  cm.brand_options,
+  cm.main_benefits,
+  cm.prev_month_spend_text,
+  cm.card_image_url
 FROM card_master cm
 JOIN card_benefit_tiers cbt ON cbt.card_id = cm.id
 JOIN card_tier_rules ctr ON ctr.tier_id = cbt.id;
@@ -409,11 +465,17 @@ DECLARE
   v_tier_name TEXT;
 
   v_annual_fee INTEGER;
+  v_annual_fee_domestic INTEGER;
+  v_annual_fee_overseas INTEGER;
   v_monthly_cap INTEGER;
   v_base_rate NUMERIC(5,2);
   v_base_type TEXT;
   v_description TEXT;
   v_image_color TEXT;
+  v_brand_options TEXT[];
+  v_main_benefits TEXT[];
+  v_prev_month_spend_text TEXT;
+  v_card_image_url TEXT;
 
   v_tier_order INTEGER;
   v_min_prev_spend INTEGER;
@@ -444,6 +506,14 @@ BEGIN
     END IF;
 
     v_annual_fee := GREATEST(public.safe_to_int(v_card->>'annual_fee', 0), 0);
+    v_annual_fee_domestic := GREATEST(
+      public.safe_to_int(v_card->>'annual_fee_domestic', v_annual_fee),
+      0
+    );
+    v_annual_fee_overseas := GREATEST(
+      public.safe_to_int(v_card->>'annual_fee_overseas', v_annual_fee_domestic),
+      0
+    );
     v_monthly_cap := GREATEST(public.safe_to_int(v_card->>'monthly_benefit_cap', 0), 0);
     v_base_rate := GREATEST(public.safe_to_numeric(v_card->>'base_benefit_rate', 0), 0);
     v_base_type := LOWER(BTRIM(COALESCE(v_card->>'base_benefit_type', 'cashback')));
@@ -455,19 +525,51 @@ BEGIN
     IF v_image_color !~ '^#[0-9A-F]{6}$' THEN
       v_image_color := '#7C83FD';
     END IF;
+    v_brand_options := ARRAY(
+      SELECT LEFT(BTRIM(value), 30)
+      FROM jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(v_card->'brand_options') = 'array' THEN v_card->'brand_options'
+          ELSE '[]'::JSONB
+        END
+      ) AS t(value)
+      WHERE BTRIM(value) <> ''
+      LIMIT 8
+    );
+    v_main_benefits := ARRAY(
+      SELECT LEFT(BTRIM(value), 80)
+      FROM jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(v_card->'main_benefits') = 'array' THEN v_card->'main_benefits'
+          ELSE '[]'::JSONB
+        END
+      ) AS t(value)
+      WHERE BTRIM(value) <> ''
+      LIMIT 8
+    );
+    v_prev_month_spend_text := LEFT(BTRIM(COALESCE(v_card->>'prev_month_spend_text', '')), 160);
+    v_card_image_url := LEFT(BTRIM(COALESCE(v_card->>'card_image_url', '')), 500);
 
     INSERT INTO card_master (
-      card_name, issuer, annual_fee, image_color,
+      card_name, issuer, annual_fee, annual_fee_domestic, annual_fee_overseas,
+      image_color, brand_options, main_benefits, prev_month_spend_text, card_image_url,
       monthly_benefit_cap, base_benefit_rate, base_benefit_type, description
     )
     VALUES (
-      v_card_name, v_issuer, v_annual_fee, v_image_color,
+      v_card_name, v_issuer, v_annual_fee, v_annual_fee_domestic, v_annual_fee_overseas,
+      v_image_color, v_brand_options, v_main_benefits, v_prev_month_spend_text, v_card_image_url,
       v_monthly_cap, v_base_rate, v_base_type, v_description
     )
     ON CONFLICT (card_name, issuer) DO UPDATE
     SET
       annual_fee = EXCLUDED.annual_fee,
+      annual_fee_domestic = EXCLUDED.annual_fee_domestic,
+      annual_fee_overseas = EXCLUDED.annual_fee_overseas,
       image_color = EXCLUDED.image_color,
+      brand_options = EXCLUDED.brand_options,
+      main_benefits = EXCLUDED.main_benefits,
+      prev_month_spend_text = EXCLUDED.prev_month_spend_text,
+      card_image_url = EXCLUDED.card_image_url,
       monthly_benefit_cap = EXCLUDED.monthly_benefit_cap,
       base_benefit_rate = EXCLUDED.base_benefit_rate,
       base_benefit_type = EXCLUDED.base_benefit_type,
@@ -567,6 +669,7 @@ END $$;
 -- ============================================
 
 GRANT SELECT ON public.card_benefit_catalog TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.search_cards_by_benefit(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.upsert_cards_from_json(JSONB) TO authenticated;
 

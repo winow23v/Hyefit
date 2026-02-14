@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/card_benefit_tier.dart';
 import '../models/card_master.dart';
 import '../models/user_card.dart';
 import '../services/card_service.dart';
@@ -6,6 +7,17 @@ import '../services/demo_data_service.dart';
 import 'auth_provider.dart';
 
 final cardServiceProvider = Provider<CardService>((ref) => CardService());
+
+final cardTiersProvider = FutureProvider.autoDispose
+    .family<List<CardBenefitTier>, String>((ref, cardMasterId) async {
+      final isGuest = ref.watch(isGuestModeProvider);
+      if (isGuest) {
+        return DemoDataService.tiersByCardId[cardMasterId] ?? const [];
+      }
+
+      final cardService = ref.watch(cardServiceProvider);
+      return cardService.getBenefitTiers(cardMasterId);
+    });
 
 /// 시스템 카드 목록 (등록 가능한 전체 카드)
 final allCardsProvider = FutureProvider<List<CardMaster>>((ref) async {
@@ -19,8 +31,8 @@ final allCardsProvider = FutureProvider<List<CardMaster>>((ref) async {
 /// 사용자 보유 카드 목록
 final userCardsProvider =
     AsyncNotifierProvider<UserCardsNotifier, List<UserCard>>(
-  UserCardsNotifier.new,
-);
+      UserCardsNotifier.new,
+    );
 
 class UserCardsNotifier extends AsyncNotifier<List<UserCard>> {
   @override

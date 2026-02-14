@@ -12,8 +12,7 @@ class AdminCardAddScreen extends ConsumerStatefulWidget {
   const AdminCardAddScreen({super.key});
 
   @override
-  ConsumerState<AdminCardAddScreen> createState() =>
-      _AdminCardAddScreenState();
+  ConsumerState<AdminCardAddScreen> createState() => _AdminCardAddScreenState();
 }
 
 class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
@@ -23,7 +22,12 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
   // Step 1: 카드 기본 정보
   final _nameController = TextEditingController();
   final _issuerController = TextEditingController();
-  final _feeController = TextEditingController(text: '0');
+  final _feeDomesticController = TextEditingController(text: '0');
+  final _feeOverseasController = TextEditingController(text: '0');
+  final _brandsController = TextEditingController(text: '국내, Master');
+  final _mainBenefitsController = TextEditingController();
+  final _prevMonthSpendController = TextEditingController();
+  final _cardImageUrlController = TextEditingController();
   final _benefitCapController = TextEditingController(text: '10000');
   final _baseRateController = TextEditingController(text: '0');
   final _descriptionController = TextEditingController();
@@ -34,15 +38,26 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
   final List<_TierData> _tiers = [];
 
   static const _colorOptions = [
-    '#7C83FD', '#2563EB', '#DC2626', '#7C3AED',
-    '#059669', '#D97706', '#E11D48', '#6366F1',
+    '#7C83FD',
+    '#2563EB',
+    '#DC2626',
+    '#7C3AED',
+    '#059669',
+    '#D97706',
+    '#E11D48',
+    '#6366F1',
   ];
 
   @override
   void dispose() {
     _nameController.dispose();
     _issuerController.dispose();
-    _feeController.dispose();
+    _feeDomesticController.dispose();
+    _feeOverseasController.dispose();
+    _brandsController.dispose();
+    _mainBenefitsController.dispose();
+    _prevMonthSpendController.dispose();
+    _cardImageUrlController.dispose();
     _benefitCapController.dispose();
     _baseRateController.dispose();
     _descriptionController.dispose();
@@ -85,15 +100,35 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
     return {
       'card_name': _nameController.text.trim(),
       'issuer': _issuerController.text.trim(),
-      'annual_fee': int.parse(_feeController.text.replaceAll(',', '')),
+      'annual_fee': int.parse(_feeDomesticController.text.replaceAll(',', '')),
+      'annual_fee_domestic': int.parse(
+        _feeDomesticController.text.replaceAll(',', ''),
+      ),
+      'annual_fee_overseas': int.parse(
+        _feeOverseasController.text.replaceAll(',', ''),
+      ),
       'image_color': _selectedColor,
-      'monthly_benefit_cap':
-          int.parse(_benefitCapController.text.replaceAll(',', '')),
+      'card_image_url': _cardImageUrlController.text.trim(),
+      'brand_options': _splitLinesOrComma(_brandsController.text),
+      'main_benefits': _splitLinesOrComma(_mainBenefitsController.text),
+      'prev_month_spend_text': _prevMonthSpendController.text.trim(),
+      'monthly_benefit_cap': int.parse(
+        _benefitCapController.text.replaceAll(',', ''),
+      ),
       'base_benefit_rate': double.parse(_baseRateController.text),
       'base_benefit_type': _baseBenefitType,
       'description': _descriptionController.text.trim(),
       'tiers': _tiers.map((tier) => tier.toJson()).toList(),
     };
+  }
+
+  List<String> _splitLinesOrComma(String raw) {
+    return raw
+        .split(RegExp(r'[\n,|/]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   @override
@@ -157,8 +192,8 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
             color: isCompleted
                 ? AppColors.primary
                 : isActive
-                    ? AppColors.primary.withValues(alpha: 0.2)
-                    : AppColors.cardLight,
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : AppColors.cardLight,
             shape: BoxShape.circle,
             border: Border.all(
               color: isActive || isCompleted
@@ -243,14 +278,74 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
         ),
         const SizedBox(height: 16),
 
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _feeDomesticController,
+                style: AppTextStyles.body1,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: '국내 연회비',
+                  suffixText: '원',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _feeOverseasController,
+                style: AppTextStyles.body1,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: '해외 연회비',
+                  suffixText: '원',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
         TextFormField(
-          controller: _feeController,
+          controller: _brandsController,
           style: AppTextStyles.body1,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(
-            labelText: '연회비',
-            suffixText: '원',
+            labelText: '브랜드',
+            hintText: '예: 국내, Master, JCB',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        TextFormField(
+          controller: _cardImageUrlController,
+          style: AppTextStyles.body1,
+          decoration: const InputDecoration(
+            labelText: '카드 이미지 URL (선택)',
+            hintText: 'https://... 또는 assets/cards/파일명.png',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        TextFormField(
+          controller: _mainBenefitsController,
+          style: AppTextStyles.body1,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: '주요혜택 요약',
+            hintText: '줄바꿈/쉼표로 여러 줄 입력',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        TextFormField(
+          controller: _prevMonthSpendController,
+          style: AppTextStyles.body1,
+          decoration: const InputDecoration(
+            labelText: '전월실적 문구',
+            hintText: '예: 직전 1개월 30만원 이상',
           ),
         ),
         const SizedBox(height: 16),
@@ -354,17 +449,17 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
           children: [
             Text('혜택 Tier 설정', style: AppTextStyles.heading3),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: AppColors.primary,
+              ),
               onPressed: _addTier,
               tooltip: 'Tier 추가',
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          '전월 실적 구간별로 다른 혜택을 설정할 수 있습니다',
-          style: AppTextStyles.body2,
-        ),
+        Text('전월 실적 구간별로 다른 혜택을 설정할 수 있습니다', style: AppTextStyles.body2),
         const SizedBox(height: 20),
 
         if (_tiers.isEmpty)
@@ -393,7 +488,8 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
               tierNumber: index + 1,
               onDelete: () => _removeTier(index),
               onAddRule: () => _addRuleToTier(index),
-              onDeleteRule: (ruleIndex) => _removeRuleFromTier(index, ruleIndex),
+              onDeleteRule: (ruleIndex) =>
+                  _removeRuleFromTier(index, ruleIndex),
             );
           }),
       ],
@@ -410,9 +506,18 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
         _reviewSection('카드 정보', [
           _reviewItem('이름', _nameController.text),
           _reviewItem('카드사', _issuerController.text),
-          _reviewItem('연회비', '${_feeController.text}원'),
+          _reviewItem(
+            '연회비',
+            '국내 ${_feeDomesticController.text}원, 해외 ${_feeOverseasController.text}원',
+          ),
+          _reviewItem('브랜드', _brandsController.text),
+          _reviewItem('주요혜택', _mainBenefitsController.text),
+          _reviewItem('전월실적', _prevMonthSpendController.text),
           _reviewItem('월 최대 혜택', '${_benefitCapController.text}원'),
-          _reviewItem('기본 혜택', '${_baseRateController.text}% ($_baseBenefitType)'),
+          _reviewItem(
+            '기본 혜택',
+            '${_baseRateController.text}% ($_baseBenefitType)',
+          ),
         ]),
 
         const SizedBox(height: 24),
@@ -424,7 +529,9 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
             return [
               _reviewItem(
                 'Tier $tierNum',
-                tier.tierName.isEmpty ? '${tier.minPrevSpend}원 이상' : tier.tierName,
+                tier.tierName.isEmpty
+                    ? '${tier.minPrevSpend}원 이상'
+                    : tier.tierName,
               ),
               ...tier.rules.asMap().entries.map((ruleEntry) {
                 final rule = ruleEntry.value;
@@ -454,7 +561,10 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 12),
           ...items,
         ],
@@ -468,10 +578,7 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: AppTextStyles.body2),
-          ),
+          SizedBox(width: 120, child: Text(label, style: AppTextStyles.body2)),
           Expanded(
             child: Text(
               value,
@@ -488,9 +595,7 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.cardLight, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.cardLight, width: 1)),
       ),
       child: Row(
         children: [
@@ -613,13 +718,15 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
                 ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      _tiers.add(_TierData(
-                        tierName: tierNameController.text,
-                        minPrevSpend: int.parse(minSpendController.text),
-                        maxPrevSpend: maxSpendController.text.isEmpty
-                            ? null
-                            : int.parse(maxSpendController.text),
-                      ));
+                      _tiers.add(
+                        _TierData(
+                          tierName: tierNameController.text,
+                          minPrevSpend: int.parse(minSpendController.text),
+                          maxPrevSpend: maxSpendController.text.isEmpty
+                              ? null
+                              : int.parse(maxSpendController.text),
+                        ),
+                      );
                     });
                     Navigator.pop(ctx);
                   },
@@ -706,8 +813,9 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
                     TextFormField(
                       controller: rateController,
                       style: AppTextStyles.body1,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: '혜택률',
                         suffixText: '%',
@@ -730,13 +838,18 @@ class _AdminCardAddScreenState extends ConsumerState<AdminCardAddScreen> {
                           ? null
                           : () {
                               setState(() {
-                                _tiers[tierIndex].rules.add(_RuleData(
-                                  category: selectedCategory!,
-                                  benefitType: benefitType,
-                                  benefitRate: double.parse(rateController.text),
-                                  maxBenefitAmount:
-                                      int.parse(maxBenefitController.text),
-                                ));
+                                _tiers[tierIndex].rules.add(
+                                  _RuleData(
+                                    category: selectedCategory!,
+                                    benefitType: benefitType,
+                                    benefitRate: double.parse(
+                                      rateController.text,
+                                    ),
+                                    maxBenefitAmount: int.parse(
+                                      maxBenefitController.text,
+                                    ),
+                                  ),
+                                );
                               });
                               Navigator.pop(ctx);
                             },
@@ -871,8 +984,9 @@ class _TierCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
@@ -899,14 +1013,18 @@ class _TierCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle_outline_rounded,
-                      color: AppColors.primary),
+                  icon: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: AppColors.primary,
+                  ),
                   onPressed: onAddRule,
                   tooltip: '규칙 추가',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded,
-                      color: AppColors.error),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.error,
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Tier 삭제',
                 ),
@@ -927,7 +1045,10 @@ class _TierCard extends StatelessWidget {
               final rule = entry.value;
               final cat = Categories.findByKey(rule.category);
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(color: AppColors.cardLight, width: 1),
@@ -951,8 +1072,11 @@ class _TierCard extends StatelessWidget {
                     ),
                     GestureDetector(
                       onTap: () => onDeleteRule(index),
-                      child: const Icon(Icons.close_rounded,
-                          size: 18, color: AppColors.textHint),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppColors.textHint,
+                      ),
                     ),
                   ],
                 ),
