@@ -8,6 +8,7 @@
 기본 트리거:
 - `push` to `main`, `develop`
 - 수동 실행: `workflow_dispatch` (`both` / `android` / `ios`)
+- 참고: `push` 기준 iOS 배포는 `ENABLE_IOS_DISTRIBUTION=true` (GitHub Actions Variable) 일 때만 실행
 
 ## 1) GitHub Secrets/Variables 설정
 
@@ -37,6 +38,7 @@ iOS Secrets:
 
 iOS Variables:
 - `IOS_BUNDLE_ID`: (권장) iOS Bundle ID. 미설정 시 기본값 `com.changmin.hyefit` 사용
+- `ENABLE_IOS_DISTRIBUTION`: (선택) `true`면 push 시 iOS job도 자동 실행
 
 ## 2) 값 생성 방법
 
@@ -85,4 +87,3 @@ iOS 서명 실패:
 
 Android 서명 실패:
 - `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEYSTORE_PASSWORD` 재확인
-

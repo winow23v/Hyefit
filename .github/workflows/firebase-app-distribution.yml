@@ -142,7 +142,7 @@ jobs:
             "${dist_args[@]}"
 
   ios:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both')) || (github.event_name == 'push' && vars.ENABLE_IOS_DISTRIBUTION == 'true') }}
     runs-on: macos-latest
     env:
       FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID }}
