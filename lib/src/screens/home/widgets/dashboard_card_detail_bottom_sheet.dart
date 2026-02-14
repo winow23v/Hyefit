@@ -79,11 +79,6 @@ class DashboardCardDetailBottomSheet extends ConsumerWidget {
                           cardMaster,
                           tiers,
                         );
-                    final prevMonthSpend =
-                        CardDetailMetaFormatter.prevMonthSpendText(
-                          cardMaster,
-                          tiers,
-                        );
 
                     return CardDetailMetaTable(
                       annualFee: CardDetailMetaFormatter.annualFeeLabel(
@@ -91,7 +86,6 @@ class DashboardCardDetailBottomSheet extends ConsumerWidget {
                       ),
                       brand: CardDetailMetaFormatter.brandLabel(cardMaster),
                       mainBenefits: benefitLines.join('\n'),
-                      prevMonthSpend: prevMonthSpend,
                     );
                   },
                   loading: () => const Center(
@@ -110,10 +104,6 @@ class DashboardCardDetailBottomSheet extends ConsumerWidget {
                     mainBenefits: cardMaster?.description.isNotEmpty == true
                         ? cardMaster!.description
                         : '혜택 정보를 불러올 수 없어요',
-                    prevMonthSpend:
-                        cardMaster?.prevMonthSpendText.isNotEmpty == true
-                        ? cardMaster!.prevMonthSpendText
-                        : '조건 정보를 불러올 수 없어요',
                   ),
                 ),
               ],

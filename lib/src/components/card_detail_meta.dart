@@ -94,7 +94,6 @@ class CardDetailMetaTable extends StatelessWidget {
   final String annualFee;
   final String brand;
   final String mainBenefits;
-  final String prevMonthSpend;
   final EdgeInsetsGeometry padding;
 
   const CardDetailMetaTable({
@@ -102,7 +101,6 @@ class CardDetailMetaTable extends StatelessWidget {
     required this.annualFee,
     required this.brand,
     required this.mainBenefits,
-    required this.prevMonthSpend,
     this.padding = const EdgeInsets.fromLTRB(2, 8, 2, 0),
   });
 
@@ -117,8 +115,6 @@ class CardDetailMetaTable extends StatelessWidget {
           _infoRow('브랜드', brand),
           const SizedBox(height: 12),
           _infoRow('주요혜택', mainBenefits),
-          const SizedBox(height: 12),
-          _infoRow('전월실적', prevMonthSpend),
         ],
       ),
     );

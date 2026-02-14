@@ -80,10 +80,6 @@ class CardDetailInfoSection extends StatelessWidget {
           cardMaster,
           tiers,
         );
-        final prevSpendText = CardDetailMetaFormatter.prevMonthSpendText(
-          cardMaster,
-          tiers,
-        );
 
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -91,7 +87,6 @@ class CardDetailInfoSection extends StatelessWidget {
             annualFee: CardDetailMetaFormatter.annualFeeLabel(cardMaster),
             brand: CardDetailMetaFormatter.brandLabel(cardMaster),
             mainBenefits: benefitLines.join('\n'),
-            prevMonthSpend: prevSpendText,
           ),
         );
       },
