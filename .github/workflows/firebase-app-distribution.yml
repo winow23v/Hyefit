@@ -66,10 +66,6 @@ jobs:
             FIREBASE_ANDROID_APP_ID
             FIREBASE_SERVICE_ACCOUNT_JSON
             ANDROID_GOOGLE_SERVICES_JSON_BASE64
-            ANDROID_KEYSTORE_BASE64
-            ANDROID_KEYSTORE_PASSWORD
-            ANDROID_KEY_ALIAS
-            ANDROID_KEY_PASSWORD
           )
           missing=()
           for var in "${required[@]}"; do
@@ -84,6 +80,25 @@ jobs:
           if [[ -z "$FIREBASE_TESTERS" && -z "$FIREBASE_TESTER_GROUPS" ]]; then
             echo "::error::Set at least one of FIREBASE_TESTERS or FIREBASE_TESTER_GROUPS."
             exit 1
+          fi
+
+          signing_required=(
+            ANDROID_KEYSTORE_BASE64
+            ANDROID_KEYSTORE_PASSWORD
+            ANDROID_KEY_ALIAS
+            ANDROID_KEY_PASSWORD
+          )
+          missing_signing=()
+          for var in "${signing_required[@]}"; do
+            if [[ -z "${!var}" ]]; then
+              missing_signing+=("$var")
+            fi
+          done
+          if [[ ${#missing_signing[@]} -eq 0 ]]; then
+            echo "HAS_ANDROID_RELEASE_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Missing Android release signing secrets: ${missing_signing[*]}. Falling back to debug APK."
+            echo "HAS_ANDROID_RELEASE_SIGNING=false" >> "$GITHUB_ENV"
           fi
 
       - name: Resolve release notes
@@ -104,19 +119,29 @@ jobs:
         run: |
           mkdir -p android/app
           printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
-          cat > android/key.properties <<EOF
-          storePassword=$ANDROID_KEYSTORE_PASSWORD
-          keyPassword=$ANDROID_KEY_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          storeFile=app/upload-keystore.jks
-          EOF
+          if [[ "$HAS_ANDROID_RELEASE_SIGNING" == "true" ]]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            cat > android/key.properties <<EOF
+            storePassword=$ANDROID_KEYSTORE_PASSWORD
+            keyPassword=$ANDROID_KEY_PASSWORD
+            keyAlias=$ANDROID_KEY_ALIAS
+            storeFile=app/upload-keystore.jks
+            EOF
+          fi
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android release APK
-        run: flutter build apk --release
+      - name: Build Android APK
+        shell: bash
+        run: |
+          if [[ "$HAS_ANDROID_RELEASE_SIGNING" == "true" ]]; then
+            flutter build apk --release
+            echo "ANDROID_APK_PATH=build/app/outputs/flutter-apk/app-release.apk" >> "$GITHUB_ENV"
+          else
+            flutter build apk --debug
+            echo "ANDROID_APK_PATH=build/app/outputs/flutter-apk/app-debug.apk" >> "$GITHUB_ENV"
+          fi
 
       - name: Upload Android build to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
@@ -125,7 +150,7 @@ jobs:
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: ${{ env.FIREBASE_TESTER_GROUPS }}
           testers: ${{ env.FIREBASE_TESTERS }}
-          file: build/app/outputs/flutter-apk/app-release.apk
+          file: ${{ env.ANDROID_APK_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
 
   ios:
