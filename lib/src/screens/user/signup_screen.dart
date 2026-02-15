@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/password_validator.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -32,10 +33,26 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // HIBP API를 사용한 비밀번호 유출 검증
+    final password = _passwordController.text;
+    final passwordError = await PasswordValidator.validatePassword(password);
+
+    if (passwordError != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(passwordError),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     await ref.read(authNotifierProvider.notifier).signUp(
           nickname: _nicknameController.text.trim(),
           email: _emailController.text.trim(),
-          password: _passwordController.text,
+          password: password,
         );
 
     if (!mounted) return;
@@ -248,7 +265,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   style: AppTextStyles.body1,
                   decoration: InputDecoration(
                     labelText: '비밀번호',
-                    hintText: '6자 이상',
+                    hintText: '8자 이상, 영문+숫자 조합',
                     prefixIcon: const Icon(
                       Icons.lock_outline,
                       color: AppColors.textHint,
@@ -268,13 +285,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '비밀번호를 입력해주세요';
-                    }
-                    if (value.length < 6) {
-                      return '비밀번호는 6자 이상이어야 합니다';
-                    }
-                    return null;
+                    // 기본 검증만 수행 (빠른 피드백)
+                    // 유출 검증은 가입 버튼 클릭 시 수행
+                    return PasswordValidator.validatePasswordStrength(value ?? '');
                   },
                 ),
 
