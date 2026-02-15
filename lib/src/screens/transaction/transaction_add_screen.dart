@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/constants/categories.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/transaction.dart';
 import '../../models/user_card.dart';
 import '../../providers/card_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../components/category_chip.dart';
 
 final _dateFormat = DateFormat('yyyy.MM.dd');
 
@@ -21,22 +21,35 @@ class TransactionAddScreen extends ConsumerStatefulWidget {
 }
 
 class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
-  static const int _transactionsPageSize = 8;
+  static const int _transactionsPageSize = 6;
 
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _memoController = TextEditingController();
+  final _cardPageController = PageController(viewportFraction: 0.92);
+  final _categoryPageController = PageController(viewportFraction: 0.56);
 
   String? _selectedCategory;
   UserCard? _selectedCard;
   DateTime _selectedDate = DateTime.now();
+  DateTime _historySelectedDate = DateTime.now();
   bool _isSubmitting = false;
   int _visibleTransactionCount = _transactionsPageSize;
+  int _selectedCardPage = 0;
+  int _selectedCategoryPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = Categories.all.first.key;
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
     _memoController.dispose();
+    _cardPageController.dispose();
+    _categoryPageController.dispose();
     super.dispose();
   }
 
@@ -63,6 +76,42 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
     if (picked != null) {
       setState(() => _selectedDate = picked);
     }
+  }
+
+  bool _isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  void _ensureSelectedCard(List<UserCard> cards) {
+    if (cards.isEmpty) return;
+
+    final current = _selectedCard;
+    final currentIndex = current == null
+        ? -1
+        : cards.indexWhere((card) => card.id == current.id);
+    if (currentIndex >= 0) {
+      if (currentIndex != _selectedCardPage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() => _selectedCardPage = currentIndex);
+          if (_cardPageController.hasClients) {
+            _cardPageController.jumpToPage(currentIndex);
+          }
+        });
+      }
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _selectedCardPage = 0;
+        _selectedCard = cards.first;
+      });
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(0);
+      }
+    });
   }
 
   Future<void> _handleSubmit() async {
@@ -110,7 +159,6 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
         _amountController.clear();
         _memoController.clear();
         setState(() {
-          _selectedCategory = null;
           _selectedDate = DateTime.now();
         });
 
@@ -287,20 +335,78 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                       ),
                     );
                   }
-                  return DropdownButtonFormField<UserCard>(
-                    value: _selectedCard,
-                    decoration: const InputDecoration(hintText: '카드를 선택하세요'),
-                    dropdownColor: AppColors.card,
-                    style: AppTextStyles.body1,
-                    items: cards.map((card) {
-                      return DropdownMenuItem(
-                        value: card,
-                        child: Text(card.displayName),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedCard = value);
-                    },
+                  _ensureSelectedCard(cards);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 92,
+                        child: PageView.builder(
+                          controller: _cardPageController,
+                          itemCount: cards.length,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _selectedCardPage = index;
+                              _selectedCard = cards[index];
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final card = cards[index];
+                            final isSelected = index == _selectedCardPage;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.card
+                                    : AppColors.inputFill,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : Colors.transparent,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.credit_card_rounded,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      card.displayName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.body1.copyWith(
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (cards.length > 1) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '좌우로 스와이프해서 카드 선택 (${_selectedCardPage + 1}/${cards.length})',
+                          style: AppTextStyles.caption,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
                   );
                 },
                 loading: () =>
@@ -313,11 +419,76 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
               // 카테고리 선택
               Text('카테고리', style: AppTextStyles.label),
               const SizedBox(height: 8),
-              CategoryChipGroup(
-                selectedKey: _selectedCategory,
-                onSelected: (key) {
-                  setState(() => _selectedCategory = key);
-                },
+              SizedBox(
+                height: 88,
+                child: PageView.builder(
+                  controller: _categoryPageController,
+                  itemCount: Categories.all.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _selectedCategoryPage = index;
+                      _selectedCategory = Categories.all[index].key;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final category = Categories.all[index];
+                    final isSelected = index == _selectedCategoryPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? category.color.withValues(alpha: 0.2)
+                            : AppColors.cardLight,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? category.color
+                              : Colors.transparent,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            category.icon,
+                            size: 18,
+                            color: isSelected
+                                ? category.color
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              category.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.body2.copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? category.color
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '좌우로 스와이프해서 카테고리 선택 (${_selectedCategoryPage + 1}/${Categories.all.length})',
+                style: AppTextStyles.caption,
+                textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 24),
@@ -351,24 +522,81 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
 
               const SizedBox(height: 32),
 
-              // 최근 소비 내역
-              Text('최근 소비 내역', style: AppTextStyles.heading3),
+              // 날짜별 소비 내역
+              Text('소비 내역 날짜 선택', style: AppTextStyles.heading3),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: AppColors.primary,
+                      onPrimary: AppColors.textPrimary,
+                      surface: AppColors.card,
+                      onSurface: AppColors.textPrimary,
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  child: CalendarDatePicker(
+                    initialDate: _historySelectedDate,
+                    firstDate: DateTime(DateTime.now().year - 2, 1, 1),
+                    lastDate: DateTime.now(),
+                    currentDate: DateTime.now(),
+                    onDateChanged: (picked) {
+                      setState(() {
+                        _historySelectedDate = picked;
+                        _visibleTransactionCount = _transactionsPageSize;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${_dateFormat.format(_historySelectedDate)} 소비 내역',
+                style: AppTextStyles.heading3,
+              ),
               const SizedBox(height: 12),
 
               recentTransactions.when(
                 data: (transactions) {
-                  if (transactions.isEmpty) {
-                    return Text('이번 달 소비 내역이 없습니다', style: AppTextStyles.body2);
+                  final dailyTransactions = transactions
+                      .where(
+                        (tx) => _isSameDate(
+                          tx.transactionDate,
+                          _historySelectedDate,
+                        ),
+                      )
+                      .toList();
+                  if (dailyTransactions.isEmpty) {
+                    final isToday = _isSameDate(
+                      _historySelectedDate,
+                      DateTime.now(),
+                    );
+                    return Text(
+                      isToday
+                          ? '오늘은 절약했어요. 소비 내역이 없어요.'
+                          : '${_dateFormat.format(_historySelectedDate)}은 절약했어요. 소비 내역이 없어요.',
+                      style: AppTextStyles.body2,
+                    );
                   }
                   final displayCount =
-                      _visibleTransactionCount > transactions.length
-                      ? transactions.length
+                      _visibleTransactionCount > dailyTransactions.length
+                      ? dailyTransactions.length
                       : _visibleTransactionCount;
-                  final display = transactions.take(displayCount).toList();
-                  final hasMore = transactions.length > displayCount;
+                  final display = dailyTransactions.take(displayCount).toList();
+                  final hasMore = dailyTransactions.length > displayCount;
                   final canCollapse =
                       displayCount > _transactionsPageSize &&
-                      transactions.length > _transactionsPageSize;
+                      dailyTransactions.length > _transactionsPageSize;
 
                   final transactionWidgets = display.map<Widget>((tx) {
                     return Dismissible(
@@ -471,13 +699,13 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                                       _visibleTransactionCount +
                                       _transactionsPageSize;
                                   _visibleTransactionCount =
-                                      nextCount > transactions.length
-                                      ? transactions.length
+                                      nextCount > dailyTransactions.length
+                                      ? dailyTransactions.length
                                       : nextCount;
                                 });
                               },
                               child: Text(
-                                '더 보기 (${transactions.length - displayCount}개 남음)',
+                                '더 보기 (${dailyTransactions.length - displayCount}개 남음)',
                               ),
                             ),
                           if (hasMore && canCollapse) const SizedBox(width: 8),
