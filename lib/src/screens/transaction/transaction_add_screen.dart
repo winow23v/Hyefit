@@ -21,6 +21,8 @@ class TransactionAddScreen extends ConsumerStatefulWidget {
 }
 
 class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
+  static const int _transactionsPageSize = 8;
+
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _memoController = TextEditingController();
@@ -29,6 +31,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
   UserCard? _selectedCard;
   DateTime _selectedDate = DateTime.now();
   bool _isSubmitting = false;
+  int _visibleTransactionCount = _transactionsPageSize;
 
   @override
   void dispose() {
@@ -87,17 +90,18 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
     FocusScope.of(context).unfocus();
 
     try {
-      final amountText =
-          _amountController.text.replaceAll(',', '').replaceAll('원', '');
+      final amountText = _amountController.text
+          .replaceAll(',', '')
+          .replaceAll('원', '');
       final amount = int.parse(amountText);
 
-      await ref.read(monthlyTransactionsProvider.notifier).addTransaction(
+      await ref
+          .read(monthlyTransactionsProvider.notifier)
+          .addTransaction(
             userCardId: _selectedCard!.id,
             amount: amount,
             category: _selectedCategory!,
-            memo: _memoController.text.isNotEmpty
-                ? _memoController.text
-                : null,
+            memo: _memoController.text.isNotEmpty ? _memoController.text : null,
             transactionDate: _selectedDate,
           );
 
@@ -149,10 +153,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text(
-                '삭제',
-                style: TextStyle(color: AppColors.error),
-              ),
+              child: const Text('삭제', style: TextStyle(color: AppColors.error)),
             ),
           ],
         );
@@ -177,10 +178,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
     } catch (e) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('삭제 실패: $e'),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text('삭제 실패: $e'), backgroundColor: AppColors.error),
       );
       return false;
     }
@@ -192,9 +190,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
     final recentTransactions = ref.watch(monthlyTransactionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('소비 입력'),
-      ),
+      appBar: AppBar(title: const Text('소비 입력')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -225,8 +221,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                   if (value == null || value.isEmpty) {
                     return '금액을 입력해주세요';
                   }
-                  final parsed =
-                      int.tryParse(value.replaceAll(',', ''));
+                  final parsed = int.tryParse(value.replaceAll(',', ''));
                   if (parsed == null || parsed <= 0) {
                     return '올바른 금액을 입력해주세요';
                   }
@@ -294,9 +289,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                   }
                   return DropdownButtonFormField<UserCard>(
                     value: _selectedCard,
-                    decoration: const InputDecoration(
-                      hintText: '카드를 선택하세요',
-                    ),
+                    decoration: const InputDecoration(hintText: '카드를 선택하세요'),
                     dropdownColor: AppColors.card,
                     style: AppTextStyles.body1,
                     items: cards.map((card) {
@@ -310,9 +303,8 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                     },
                   );
                 },
-                loading: () => const LinearProgressIndicator(
-                  color: AppColors.primary,
-                ),
+                loading: () =>
+                    const LinearProgressIndicator(color: AppColors.primary),
                 error: (e, _) => Text('오류: $e'),
               ),
 
@@ -337,9 +329,7 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                 controller: _memoController,
                 style: AppTextStyles.body1,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  hintText: '어디서 사용했나요?',
-                ),
+                decoration: const InputDecoration(hintText: '어디서 사용했나요?'),
               ),
 
               const SizedBox(height: 32),
@@ -368,107 +358,153 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
               recentTransactions.when(
                 data: (transactions) {
                   if (transactions.isEmpty) {
-                    return Text(
-                      '이번 달 소비 내역이 없습니다',
-                      style: AppTextStyles.body2,
-                    );
+                    return Text('이번 달 소비 내역이 없습니다', style: AppTextStyles.body2);
                   }
-                  // 모든 거래 내역 표시 (최대 100개로 제한)
-                  final display = transactions.take(100).toList();
+                  final displayCount =
+                      _visibleTransactionCount > transactions.length
+                      ? transactions.length
+                      : _visibleTransactionCount;
+                  final display = transactions.take(displayCount).toList();
+                  final hasMore = transactions.length > displayCount;
+                  final canCollapse =
+                      displayCount > _transactionsPageSize &&
+                      transactions.length > _transactionsPageSize;
+
                   return Column(
-                    children: display.map((tx) {
-                      return Dismissible(
-                        key: ValueKey(tx.id),
-                        direction: DismissDirection.endToStart,
-                        confirmDismiss: (_) async {
-                          final confirmed = await _confirmDeleteTransaction(tx);
-                          if (!confirmed) return false;
-                          return _handleDeleteTransaction(tx);
-                        },
-                        background: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          alignment: Alignment.centerRight,
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: AppColors.error,
-                          ),
-                        ),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      tx.category,
-                                      style: AppTextStyles.body2.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    if (tx.memo != null)
-                                      Text(
-                                        tx.memo!,
-                                        style: AppTextStyles.caption,
-                                      ),
-                                  ],
-                                ),
+                    children:
+                        display.map((tx) {
+                          return Dismissible(
+                            key: ValueKey(tx.id),
+                            direction: DismissDirection.endToStart,
+                            confirmDismiss: (_) async {
+                              final confirmed = await _confirmDeleteTransaction(
+                                tx,
+                              );
+                              if (!confirmed) return false;
+                              return _handleDeleteTransaction(tx);
+                            },
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                              alignment: Alignment.centerRight,
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: AppColors.error,
+                              ),
+                            ),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    '${NumberFormat('#,###').format(tx.amount)}원',
-                                    style: AppTextStyles.body1.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tx.category,
+                                          style: AppTextStyles.body2.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        if (tx.memo != null)
+                                          Text(
+                                            tx.memo!,
+                                            style: AppTextStyles.caption,
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  Text(
-                                    _dateFormat.format(tx.transactionDate),
-                                    style: AppTextStyles.caption,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${NumberFormat('#,###').format(tx.amount)}원',
+                                        style: AppTextStyles.body1.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        _dateFormat.format(tx.transactionDate),
+                                        style: AppTextStyles.caption,
+                                      ),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    onPressed: () async {
+                                      final confirmed =
+                                          await _confirmDeleteTransaction(tx);
+                                      if (!confirmed) return;
+                                      await _handleDeleteTransaction(tx);
+                                    },
+                                    tooltip: '삭제',
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: AppColors.error,
+                                    ),
                                   ),
                                 ],
                               ),
-                              IconButton(
-                                onPressed: () async {
-                                  final confirmed =
-                                      await _confirmDeleteTransaction(tx);
-                                  if (!confirmed) return;
-                                  await _handleDeleteTransaction(tx);
-                                },
-                                tooltip: '삭제',
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: AppColors.error,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                            ),
+                          );
+                        }).toList()..addAll([
+                          if (hasMore || canCollapse) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (hasMore)
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        final nextCount =
+                                            _visibleTransactionCount +
+                                            _transactionsPageSize;
+                                        _visibleTransactionCount =
+                                            nextCount > transactions.length
+                                            ? transactions.length
+                                            : nextCount;
+                                      });
+                                    },
+                                    child: Text(
+                                      '더 보기 (${transactions.length - displayCount}개 남음)',
+                                    ),
+                                  ),
+                                if (hasMore && canCollapse)
+                                  const SizedBox(width: 8),
+                                if (canCollapse)
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _visibleTransactionCount =
+                                            _transactionsPageSize;
+                                      });
+                                    },
+                                    child: const Text('접기'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ]),
                   );
                 },
                 loading: () => const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                  ),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
                 error: (e, _) => Text('오류: $e'),
               ),
