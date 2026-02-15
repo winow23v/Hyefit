@@ -370,138 +370,133 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                       displayCount > _transactionsPageSize &&
                       transactions.length > _transactionsPageSize;
 
-                  return Column(
-                    children:
-                        display.map((tx) {
-                          return Dismissible(
-                            key: ValueKey(tx.id),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) async {
-                              final confirmed = await _confirmDeleteTransaction(
-                                tx,
-                              );
-                              if (!confirmed) return false;
-                              return _handleDeleteTransaction(tx);
-                            },
-                            background: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
+                  final transactionWidgets = display.map<Widget>((tx) {
+                    return Dismissible(
+                      key: ValueKey(tx.id),
+                      direction: DismissDirection.endToStart,
+                      confirmDismiss: (_) async {
+                        final confirmed = await _confirmDeleteTransaction(tx);
+                        if (!confirmed) return false;
+                        return _handleDeleteTransaction(tx);
+                      },
+                      background: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        alignment: Alignment.centerRight,
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.error,
+                        ),
+                      ),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tx.category,
+                                    style: AppTextStyles.body2.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  if (tx.memo != null)
+                                    Text(
+                                      tx.memo!,
+                                      style: AppTextStyles.caption,
+                                    ),
+                                ],
                               ),
-                              alignment: Alignment.centerRight,
-                              decoration: BoxDecoration(
-                                color: AppColors.error.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${NumberFormat('#,###').format(tx.amount)}원',
+                                  style: AppTextStyles.body1.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  _dateFormat.format(tx.transactionDate),
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              onPressed: () async {
+                                final confirmed =
+                                    await _confirmDeleteTransaction(tx);
+                                if (!confirmed) return;
+                                await _handleDeleteTransaction(tx);
+                              },
+                              tooltip: '삭제',
+                              icon: const Icon(
                                 Icons.delete_outline_rounded,
                                 color: AppColors.error,
                               ),
                             ),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          tx.category,
-                                          style: AppTextStyles.body2.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        if (tx.memo != null)
-                                          Text(
-                                            tx.memo!,
-                                            style: AppTextStyles.caption,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '${NumberFormat('#,###').format(tx.amount)}원',
-                                        style: AppTextStyles.body1.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        _dateFormat.format(tx.transactionDate),
-                                        style: AppTextStyles.caption,
-                                      ),
-                                    ],
-                                  ),
-                                  IconButton(
-                                    onPressed: () async {
-                                      final confirmed =
-                                          await _confirmDeleteTransaction(tx);
-                                      if (!confirmed) return;
-                                      await _handleDeleteTransaction(tx);
-                                    },
-                                    tooltip: '삭제',
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      color: AppColors.error,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList()..addAll([
-                          if (hasMore || canCollapse) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (hasMore)
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        final nextCount =
-                                            _visibleTransactionCount +
-                                            _transactionsPageSize;
-                                        _visibleTransactionCount =
-                                            nextCount > transactions.length
-                                            ? transactions.length
-                                            : nextCount;
-                                      });
-                                    },
-                                    child: Text(
-                                      '더 보기 (${transactions.length - displayCount}개 남음)',
-                                    ),
-                                  ),
-                                if (hasMore && canCollapse)
-                                  const SizedBox(width: 8),
-                                if (canCollapse)
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _visibleTransactionCount =
-                                            _transactionsPageSize;
-                                      });
-                                    },
-                                    child: const Text('접기'),
-                                  ),
-                              ],
-                            ),
                           ],
-                        ]),
-                  );
+                        ),
+                      ),
+                    );
+                  }).toList();
+
+                  if (hasMore || canCollapse) {
+                    transactionWidgets.add(const SizedBox(height: 8));
+                    transactionWidgets.add(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (hasMore)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  final nextCount =
+                                      _visibleTransactionCount +
+                                      _transactionsPageSize;
+                                  _visibleTransactionCount =
+                                      nextCount > transactions.length
+                                      ? transactions.length
+                                      : nextCount;
+                                });
+                              },
+                              child: Text(
+                                '더 보기 (${transactions.length - displayCount}개 남음)',
+                              ),
+                            ),
+                          if (hasMore && canCollapse) const SizedBox(width: 8),
+                          if (canCollapse)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _visibleTransactionCount =
+                                      _transactionsPageSize;
+                                });
+                              },
+                              child: const Text('접기'),
+                            ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Column(children: transactionWidgets);
                 },
                 loading: () => const Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
