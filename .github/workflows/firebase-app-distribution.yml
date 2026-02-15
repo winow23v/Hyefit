@@ -148,7 +148,7 @@ jobs:
               echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
               echo "keyPassword=$ANDROID_KEY_PASSWORD"
               echo "keyAlias=$ANDROID_KEY_ALIAS"
-              echo "storeFile=app/upload-keystore.jks"
+              echo "storeFile=upload-keystore.jks"
             } > android/key.properties
           fi
 
