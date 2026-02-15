@@ -167,60 +167,79 @@ $$;
 
 -- card_master: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_master ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "card_master_select" ON card_master;
 CREATE POLICY "card_master_select" ON card_master
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "card_master_insert" ON card_master;
 CREATE POLICY "card_master_insert" ON card_master
   FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_master_update" ON card_master;
 CREATE POLICY "card_master_update" ON card_master
   FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_master_delete" ON card_master;
 CREATE POLICY "card_master_delete" ON card_master
   FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- card_benefit_tiers: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_benefit_tiers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "card_benefit_tiers_select" ON card_benefit_tiers;
 CREATE POLICY "card_benefit_tiers_select" ON card_benefit_tiers
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "card_benefit_tiers_insert" ON card_benefit_tiers;
 CREATE POLICY "card_benefit_tiers_insert" ON card_benefit_tiers
   FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_benefit_tiers_update" ON card_benefit_tiers;
 CREATE POLICY "card_benefit_tiers_update" ON card_benefit_tiers
   FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_benefit_tiers_delete" ON card_benefit_tiers;
 CREATE POLICY "card_benefit_tiers_delete" ON card_benefit_tiers
   FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- card_tier_rules: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
 ALTER TABLE card_tier_rules ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "card_tier_rules_select" ON card_tier_rules;
 CREATE POLICY "card_tier_rules_select" ON card_tier_rules
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "card_tier_rules_insert" ON card_tier_rules;
 CREATE POLICY "card_tier_rules_insert" ON card_tier_rules
   FOR INSERT TO authenticated WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_tier_rules_update" ON card_tier_rules;
 CREATE POLICY "card_tier_rules_update" ON card_tier_rules
   FOR UPDATE TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
+DROP POLICY IF EXISTS "card_tier_rules_delete" ON card_tier_rules;
 CREATE POLICY "card_tier_rules_delete" ON card_tier_rules
   FOR DELETE TO authenticated USING (public.is_admin_user());
 
 -- user_cards: 본인 데이터만
 ALTER TABLE user_cards ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "user_cards_select" ON user_cards;
 CREATE POLICY "user_cards_select" ON user_cards
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "user_cards_insert" ON user_cards;
 CREATE POLICY "user_cards_insert" ON user_cards
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "user_cards_update" ON user_cards;
 CREATE POLICY "user_cards_update" ON user_cards
   FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "user_cards_delete" ON user_cards;
 CREATE POLICY "user_cards_delete" ON user_cards
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- user_card_status: 본인 카드 상태만
 ALTER TABLE user_card_status ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "user_card_status_select" ON user_card_status;
 CREATE POLICY "user_card_status_select" ON user_card_status
   FOR SELECT TO authenticated
   USING (
     user_card_id IN (SELECT id FROM user_cards WHERE user_id = auth.uid())
   );
+DROP POLICY IF EXISTS "user_card_status_insert" ON user_card_status;
 CREATE POLICY "user_card_status_insert" ON user_card_status
   FOR INSERT TO authenticated
   WITH CHECK (
     user_card_id IN (SELECT id FROM user_cards WHERE user_id = auth.uid())
   );
+DROP POLICY IF EXISTS "user_card_status_update" ON user_card_status;
 CREATE POLICY "user_card_status_update" ON user_card_status
   FOR UPDATE TO authenticated
   USING (
@@ -229,10 +248,13 @@ CREATE POLICY "user_card_status_update" ON user_card_status
 
 -- transactions: 본인 데이터만
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "transactions_select" ON transactions;
 CREATE POLICY "transactions_select" ON transactions
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "transactions_insert" ON transactions;
 CREATE POLICY "transactions_insert" ON transactions
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "transactions_delete" ON transactions;
 CREATE POLICY "transactions_delete" ON transactions
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
