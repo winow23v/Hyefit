@@ -373,7 +373,8 @@ class _TransactionAddScreenState extends ConsumerState<TransactionAddScreen> {
                       style: AppTextStyles.body2,
                     );
                   }
-                  final display = transactions.take(5).toList();
+                  // 모든 거래 내역 표시 (최대 100개로 제한)
+                  final display = transactions.take(100).toList();
                   return Column(
                     children: display.map((tx) {
                       return Dismissible(
