@@ -33,7 +33,37 @@ class CardDetailMetaFormatter {
     List<CardBenefitTier> tiers,
   ) {
     if (cardMaster != null && cardMaster.mainBenefits.isNotEmpty) {
-      return cardMaster.mainBenefits;
+      // 중복 제거: 괄호 포함된 상세 설명만 유지하고 간단한 설명 제거
+      final benefits = cardMaster.mainBenefits;
+      final filtered = <String>[];
+      final seen = <String>{};
+
+      for (final benefit in benefits) {
+        // 괄호가 있는 항목 우선 (상세 설명)
+        if (benefit.contains('[') || benefit.contains('(')) {
+          filtered.add(benefit);
+          // 핵심 키워드 추출 (예: "배달앱", "카페" 등)
+          final keywords = benefit.replaceAll(RegExp(r'[\[\]\(\)]'), '')
+              .split(RegExp(r'[/,\s]+'))
+              .where((w) => w.length > 1)
+              .take(3);
+          seen.addAll(keywords);
+        }
+      }
+
+      // 괄호 없는 간단한 항목은 중복 체크 후 추가
+      for (final benefit in benefits) {
+        if (!benefit.contains('[') && !benefit.contains('(')) {
+          final isDuplicate = seen.any((keyword) =>
+            benefit.contains(keyword) && keyword.length > 2
+          );
+          if (!isDuplicate) {
+            filtered.add(benefit);
+          }
+        }
+      }
+
+      return filtered.take(4).toList(); // 최대 4줄로 제한
     }
 
     final lines = <String>{};
@@ -86,6 +116,12 @@ class CardDetailMetaFormatter {
     if (tier.maxPrevSpend == null) {
       return '전월 ${formatCurrency(tier.minPrevSpend)}원 이상';
     }
+
+    // 최대값이 너무 크거나 비현실적이면 "이상"으로 표시
+    if (tier.maxPrevSpend! >= 10000000) { // 1천만원 이상이면
+      return '전월 ${formatCurrency(tier.minPrevSpend)}원 이상';
+    }
+
     return '전월 ${formatCurrency(tier.minPrevSpend)}~${formatCurrency(tier.maxPrevSpend!)}원';
   }
 }
