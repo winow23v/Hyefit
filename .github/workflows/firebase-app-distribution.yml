@@ -143,12 +143,33 @@ jobs:
             echo "ANDROID_APK_PATH=build/app/outputs/flutter-apk/app-debug.apk" >> "$GITHUB_ENV"
           fi
 
-      - name: Upload Android build to Firebase App Distribution
+      - name: Upload Android build to Firebase (groups + testers)
+        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS != '' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: ${{ env.FIREBASE_TESTER_GROUPS }}
+          testers: ${{ env.FIREBASE_TESTERS }}
+          file: ${{ env.ANDROID_APK_PATH }}
+          releaseNotes: ${{ env.RELEASE_NOTES }}
+
+      - name: Upload Android build to Firebase (groups only)
+        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS == '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
+        with:
+          appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
+          file: ${{ env.ANDROID_APK_PATH }}
+          releaseNotes: ${{ env.RELEASE_NOTES }}
+
+      - name: Upload Android build to Firebase (testers only)
+        if: ${{ env.FIREBASE_TESTER_GROUPS == '' && env.FIREBASE_TESTERS != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
+        with:
+          appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
           testers: ${{ env.FIREBASE_TESTERS }}
           file: ${{ env.ANDROID_APK_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
@@ -292,12 +313,33 @@ jobs:
           fi
           echo "IOS_IPA_PATH=$ios_ipa" >> "$GITHUB_ENV"
 
-      - name: Upload iOS build to Firebase App Distribution
+      - name: Upload iOS build to Firebase (groups + testers)
+        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS != '' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
         with:
           appId: ${{ env.FIREBASE_IOS_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: ${{ env.FIREBASE_TESTER_GROUPS }}
+          testers: ${{ env.FIREBASE_TESTERS }}
+          file: ${{ env.IOS_IPA_PATH }}
+          releaseNotes: ${{ env.RELEASE_NOTES }}
+
+      - name: Upload iOS build to Firebase (groups only)
+        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS == '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
+        with:
+          appId: ${{ env.FIREBASE_IOS_APP_ID }}
+          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
+          file: ${{ env.IOS_IPA_PATH }}
+          releaseNotes: ${{ env.RELEASE_NOTES }}
+
+      - name: Upload iOS build to Firebase (testers only)
+        if: ${{ env.FIREBASE_TESTER_GROUPS == '' && env.FIREBASE_TESTERS != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
+        with:
+          appId: ${{ env.FIREBASE_IOS_APP_ID }}
+          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
           testers: ${{ env.FIREBASE_TESTERS }}
           file: ${{ env.IOS_IPA_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
