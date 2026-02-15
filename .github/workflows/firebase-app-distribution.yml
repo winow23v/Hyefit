@@ -7,15 +7,6 @@ on:
       - develop
   workflow_dispatch:
     inputs:
-      platform:
-        description: "배포 플랫폼"
-        required: true
-        type: choice
-        default: both
-        options:
-          - both
-          - android
-          - ios
       release_notes:
         description: "릴리즈 노트(선택)"
         required: false
@@ -30,18 +21,24 @@ concurrency:
 
 jobs:
   android:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both' }}
     runs-on: ubuntu-latest
     env:
-      FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-      FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
-      FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS }}
-      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-      ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      FIREBASE_ANDROID_APP_ID: ${{ secrets['FIREBASE_ANDROID_APP_ID'] }}
+      FIREBASE_TESTERS: ${{ secrets['FIREBASE_TESTERS'] }}
+      FIREBASE_TESTER_GROUPS: ${{ secrets['FIREBASE_TESTER_GROUPS'] }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets['FIREBASE_SERVICE_ACCOUNT_JSON'] }}
+      ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets['ANDROID_GOOGLE_SERVICES_JSON_BASE64'] }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets['ANDROID_KEYSTORE_BASE64'] }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets['ANDROID_KEYSTORE_PASSWORD'] }}
+      ANDROID_KEY_ALIAS: ${{ secrets['ANDROID_KEY_ALIAS'] }}
+      ANDROID_KEY_PASSWORD: ${{ secrets['ANDROID_KEY_PASSWORD'] }}
+      FIREBASE_TESTERS_CLEAN: ""
+      FIREBASE_TESTER_GROUPS_CLEAN: ""
+      HAS_FIREBASE_TESTERS: "false"
+      HAS_FIREBASE_GROUPS: "false"
+      HAS_ANDROID_RELEASE_SIGNING: "false"
+      ANDROID_APK_PATH: ""
+      RELEASE_NOTES: ""
       INPUT_RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
       PUSH_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
     steps:
@@ -58,6 +55,29 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Normalize Firebase distribution targets
+        shell: bash
+        run: |
+          testers="$(printf '%s' "${FIREBASE_TESTERS:-}" | tr -d '\r' | xargs)"
+          groups="$(printf '%s' "${FIREBASE_TESTER_GROUPS:-}" | tr -d '\r' | xargs)"
+          testers="$(printf '%s' "$testers" | sed 's/[[:space:]]*,[[:space:]]*/,/g')"
+          groups="$(printf '%s' "$groups" | sed 's/[[:space:]]*,[[:space:]]*/,/g')"
+
+          echo "FIREBASE_TESTERS_CLEAN=$testers" >> "$GITHUB_ENV"
+          echo "FIREBASE_TESTER_GROUPS_CLEAN=$groups" >> "$GITHUB_ENV"
+
+          if [[ -n "$testers" ]]; then
+            echo "HAS_FIREBASE_TESTERS=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_FIREBASE_TESTERS=false" >> "$GITHUB_ENV"
+          fi
+
+          if [[ -n "$groups" ]]; then
+            echo "HAS_FIREBASE_GROUPS=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_FIREBASE_GROUPS=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Validate required secrets
         shell: bash
@@ -77,7 +97,7 @@ jobs:
             echo "::error::Missing required secrets: ${missing[*]}"
             exit 1
           fi
-          if [[ -z "$FIREBASE_TESTERS" && -z "$FIREBASE_TESTER_GROUPS" ]]; then
+          if [[ "$HAS_FIREBASE_TESTERS" != "true" && "$HAS_FIREBASE_GROUPS" != "true" ]]; then
             echo "::error::Set at least one of FIREBASE_TESTERS or FIREBASE_TESTER_GROUPS."
             exit 1
           fi
@@ -121,12 +141,12 @@ jobs:
           printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
           if [[ "$HAS_ANDROID_RELEASE_SIGNING" == "true" ]]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
-            cat > android/key.properties <<EOF
-            storePassword=$ANDROID_KEYSTORE_PASSWORD
-            keyPassword=$ANDROID_KEY_PASSWORD
-            keyAlias=$ANDROID_KEY_ALIAS
-            storeFile=app/upload-keystore.jks
-            EOF
+            {
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "storeFile=app/upload-keystore.jks"
+            } > android/key.properties
           fi
 
       - name: Install dependencies
@@ -144,210 +164,32 @@ jobs:
           fi
 
       - name: Upload Android build to Firebase (groups + testers)
-        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS != '' }}
+        if: ${{ env.HAS_FIREBASE_GROUPS == 'true' && env.HAS_FIREBASE_TESTERS == 'true' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
-          testers: ${{ env.FIREBASE_TESTERS }}
+          groups: ${{ env.FIREBASE_TESTER_GROUPS_CLEAN }}
+          testers: ${{ env.FIREBASE_TESTERS_CLEAN }}
           file: ${{ env.ANDROID_APK_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
 
       - name: Upload Android build to Firebase (groups only)
-        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS == '' }}
+        if: ${{ env.HAS_FIREBASE_GROUPS == 'true' && env.HAS_FIREBASE_TESTERS != 'true' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
+          groups: ${{ env.FIREBASE_TESTER_GROUPS_CLEAN }}
           file: ${{ env.ANDROID_APK_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
 
       - name: Upload Android build to Firebase (testers only)
-        if: ${{ env.FIREBASE_TESTER_GROUPS == '' && env.FIREBASE_TESTERS != '' }}
+        if: ${{ env.HAS_FIREBASE_GROUPS != 'true' && env.HAS_FIREBASE_TESTERS == 'true' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          testers: ${{ env.FIREBASE_TESTERS }}
+          testers: ${{ env.FIREBASE_TESTERS_CLEAN }}
           file: ${{ env.ANDROID_APK_PATH }}
           releaseNotes: ${{ env.RELEASE_NOTES }}
-
-  ios:
-    if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both')) || (github.event_name == 'push' && vars.ENABLE_IOS_DISTRIBUTION == 'true') }}
-    runs-on: macos-latest
-    env:
-      FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID }}
-      FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
-      FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS }}
-      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-      IOS_DISTRIBUTION_CERT_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
-      IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
-      IOS_MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
-      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
-      INPUT_RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
-      PUSH_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Validate required secrets
-        shell: bash
-        run: |
-          required=(
-            FIREBASE_IOS_APP_ID
-            FIREBASE_SERVICE_ACCOUNT_JSON
-            IOS_DISTRIBUTION_CERT_BASE64
-            IOS_DISTRIBUTION_CERT_PASSWORD
-            IOS_MOBILEPROVISION_BASE64
-            IOS_TEAM_ID
-          )
-          missing=()
-          for var in "${required[@]}"; do
-            if [[ -z "${!var}" ]]; then
-              missing+=("$var")
-            fi
-          done
-          if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::error::Missing required secrets: ${missing[*]}"
-            exit 1
-          fi
-          if [[ -z "$FIREBASE_TESTERS" && -z "$FIREBASE_TESTER_GROUPS" ]]; then
-            echo "::error::Set at least one of FIREBASE_TESTERS or FIREBASE_TESTER_GROUPS."
-            exit 1
-          fi
-
-      - name: Resolve release notes
-        shell: bash
-        run: |
-          notes="$INPUT_RELEASE_NOTES"
-          if [[ -z "$notes" ]]; then
-            notes="$PUSH_COMMIT_MESSAGE"
-          fi
-          if [[ -z "$notes" ]]; then
-            notes="iOS CI build #${GITHUB_RUN_NUMBER}"
-          fi
-          notes="${notes//$'\n'/ }"
-          echo "RELEASE_NOTES=$notes" >> "$GITHUB_ENV"
-
-      - name: Setup iOS signing
-        shell: bash
-        run: |
-          CERT_PATH="$RUNNER_TEMP/dist-cert.p12"
-          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
-          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
-          KEYCHAIN_PATH="$RUNNER_TEMP/ios-build.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
-
-          printf '%s' "$IOS_DISTRIBUTION_CERT_BASE64" | base64 --decode > "$CERT_PATH" 2>/dev/null || \
-            printf '%s' "$IOS_DISTRIBUTION_CERT_BASE64" | base64 -D > "$CERT_PATH"
-          printf '%s' "$IOS_MOBILEPROVISION_BASE64" | base64 --decode > "$PROFILE_PATH" 2>/dev/null || \
-            printf '%s' "$IOS_MOBILEPROVISION_BASE64" | base64 -D > "$PROFILE_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
-          security default-keychain -d user -s "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -P "$IOS_DISTRIBUTION_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$PROFILE_PLIST")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' "$PROFILE_PLIST")
-          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-
-          echo "IOS_PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
-          echo "IOS_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build signed iOS IPA
-        shell: bash
-        run: |
-          bundle_id="${IOS_BUNDLE_ID:-com.changmin.hyefit}"
-          cat > ios/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>ad-hoc</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>${IOS_TEAM_ID}</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>${bundle_id}</key>
-              <string>${IOS_PROFILE_NAME}</string>
-            </dict>
-            <key>compileBitcode</key>
-            <false/>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>thinning</key>
-            <string>&lt;none&gt;</string>
-          </dict>
-          </plist>
-          EOF
-
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
-
-      - name: Resolve iOS IPA path
-        shell: bash
-        run: |
-          ios_ipa=$(find build/ios/ipa -name "*.ipa" | head -n 1)
-          if [[ -z "$ios_ipa" ]]; then
-            echo "::error::IPA file not found under build/ios/ipa"
-            exit 1
-          fi
-          echo "IOS_IPA_PATH=$ios_ipa" >> "$GITHUB_ENV"
-
-      - name: Upload iOS build to Firebase (groups + testers)
-        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS != '' }}
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
-        with:
-          appId: ${{ env.FIREBASE_IOS_APP_ID }}
-          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
-          testers: ${{ env.FIREBASE_TESTERS }}
-          file: ${{ env.IOS_IPA_PATH }}
-          releaseNotes: ${{ env.RELEASE_NOTES }}
-
-      - name: Upload iOS build to Firebase (groups only)
-        if: ${{ env.FIREBASE_TESTER_GROUPS != '' && env.FIREBASE_TESTERS == '' }}
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
-        with:
-          appId: ${{ env.FIREBASE_IOS_APP_ID }}
-          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: ${{ env.FIREBASE_TESTER_GROUPS }}
-          file: ${{ env.IOS_IPA_PATH }}
-          releaseNotes: ${{ env.RELEASE_NOTES }}
-
-      - name: Upload iOS build to Firebase (testers only)
-        if: ${{ env.FIREBASE_TESTER_GROUPS == '' && env.FIREBASE_TESTERS != '' }}
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
-        with:
-          appId: ${{ env.FIREBASE_IOS_APP_ID }}
-          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          testers: ${{ env.FIREBASE_TESTERS }}
-          file: ${{ env.IOS_IPA_PATH }}
-          releaseNotes: ${{ env.RELEASE_NOTES }}
-
-      - name: Cleanup iOS keychain
-        if: always()
-        shell: bash
-        run: |
-          if [[ -n "${IOS_KEYCHAIN_PATH:-}" ]]; then
-            security delete-keychain "$IOS_KEYCHAIN_PATH" || true
-          fi
