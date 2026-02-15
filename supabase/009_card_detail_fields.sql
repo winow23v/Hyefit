@@ -79,7 +79,8 @@ BEGIN
   END IF;
 END $$;
 
-CREATE OR REPLACE VIEW public.card_benefit_catalog AS
+CREATE OR REPLACE VIEW public.card_benefit_catalog
+WITH (security_invoker = true) AS
 SELECT
   cm.id AS card_id,
   cm.card_name,

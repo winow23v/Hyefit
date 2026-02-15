@@ -32,6 +32,9 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets['ANDROID_KEYSTORE_PASSWORD'] }}
       ANDROID_KEY_ALIAS: ${{ secrets['ANDROID_KEY_ALIAS'] }}
       ANDROID_KEY_PASSWORD: ${{ secrets['ANDROID_KEY_PASSWORD'] }}
+      SUPABASE_URL: ${{ secrets['SUPABASE_URL'] }}
+      SUPABASE_ANON_KEY: ${{ secrets['SUPABASE_ANON_KEY'] }}
+      SUPABASE_EMAIL_REDIRECT_URL: ${{ secrets['SUPABASE_EMAIL_REDIRECT_URL'] }}
       FIREBASE_TESTERS_CLEAN: ""
       FIREBASE_TESTER_GROUPS_CLEAN: ""
       HAS_FIREBASE_TESTERS: "false"
@@ -148,6 +151,15 @@ jobs:
               echo "storeFile=app/upload-keystore.jks"
             } > android/key.properties
           fi
+
+      - name: Create .env file
+        shell: bash
+        run: |
+          {
+            echo "SUPABASE_URL=$SUPABASE_URL"
+            echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+            echo "SUPABASE_EMAIL_REDIRECT_URL=$SUPABASE_EMAIL_REDIRECT_URL"
+          } > .env
 
       - name: Install dependencies
         run: flutter pub get

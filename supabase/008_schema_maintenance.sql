@@ -11,10 +11,10 @@ CREATE OR REPLACE FUNCTION public.is_admin_user()
 RETURNS BOOLEAN
 LANGUAGE SQL
 STABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
-  SELECT
-    LOWER(COALESCE(auth.jwt() ->> 'email', '')) = 'winow23v@naver.com'
-    OR LOWER(COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
+  SELECT LOWER(COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin_user() TO authenticated;

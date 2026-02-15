@@ -159,10 +159,10 @@ CREATE OR REPLACE FUNCTION public.is_admin_user()
 RETURNS BOOLEAN
 LANGUAGE SQL
 STABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
-  SELECT
-    LOWER(COALESCE(auth.jwt() ->> 'email', '')) = 'winow23v@naver.com'
-    OR LOWER(COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
+  SELECT LOWER(COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
 $$;
 
 -- card_master: 인증된 사용자 읽기, 삽입, 업데이트, 삭제
@@ -240,7 +240,8 @@ CREATE POLICY "transactions_delete" ON transactions
 -- SECTION 4: 뷰 (카드 혜택 조회용)
 -- ============================================
 
-CREATE OR REPLACE VIEW public.card_benefit_catalog AS
+CREATE OR REPLACE VIEW public.card_benefit_catalog
+WITH (security_invoker = true) AS
 SELECT
   cm.id AS card_id,
   cm.card_name,
@@ -298,6 +299,8 @@ RETURNS TABLE (
 )
 LANGUAGE SQL
 STABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
   SELECT
     c.card_id,
@@ -335,6 +338,8 @@ CREATE OR REPLACE FUNCTION public.safe_to_int(
 RETURNS INTEGER
 LANGUAGE plpgsql
 IMMUTABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
 DECLARE
   v_clean TEXT;
@@ -356,6 +361,8 @@ CREATE OR REPLACE FUNCTION public.safe_to_numeric(
 RETURNS NUMERIC
 LANGUAGE plpgsql
 IMMUTABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
 DECLARE
   v_clean TEXT;
@@ -375,6 +382,8 @@ CREATE OR REPLACE FUNCTION public.normalize_import_category(p_raw TEXT)
 RETURNS TEXT
 LANGUAGE SQL
 IMMUTABLE
+SECURITY INVOKER
+SET search_path = public
 AS $$
   SELECT CASE LOWER(TRIM(COALESCE(p_raw, '')))
     WHEN '외식' THEN '외식'
