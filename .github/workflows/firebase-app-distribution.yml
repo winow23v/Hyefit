@@ -207,7 +207,8 @@ jobs:
           releaseNotes: ${{ env.RELEASE_NOTES }}
 
       - name: Send Slack notification (Success)
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.27.0
         with:
           payload: |
@@ -266,7 +267,8 @@ jobs:
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
       - name: Send Slack notification (Failure)
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.27.0
         with:
           payload: |
