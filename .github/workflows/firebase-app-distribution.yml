@@ -37,6 +37,7 @@ jobs:
       FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
       FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS }}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -64,6 +65,7 @@ jobs:
           required=(
             FIREBASE_ANDROID_APP_ID
             FIREBASE_SERVICE_ACCOUNT_JSON
+            ANDROID_GOOGLE_SERVICES_JSON_BASE64
             ANDROID_KEYSTORE_BASE64
             ANDROID_KEYSTORE_PASSWORD
             ANDROID_KEY_ALIAS
@@ -97,10 +99,11 @@ jobs:
           notes="${notes//$'\n'/ }"
           echo "RELEASE_NOTES=$notes" >> "$GITHUB_ENV"
 
-      - name: Prepare Android signing files
+      - name: Prepare Android signing and Firebase config files
         shell: bash
         run: |
           mkdir -p android/app
+          printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
           cat > android/key.properties <<EOF
           storePassword=$ANDROID_KEYSTORE_PASSWORD

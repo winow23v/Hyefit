@@ -24,6 +24,7 @@
 
 Android Secrets:
 - `FIREBASE_ANDROID_APP_ID`: Firebase Android App ID (`1:xxxx:android:xxxx`)
+- `ANDROID_GOOGLE_SERVICES_JSON_BASE64`: `android/app/google-services.json` 파일 base64
 - `ANDROID_KEYSTORE_BASE64`: 업로드 keystore 파일 base64
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
@@ -47,6 +48,11 @@ Android keystore base64:
 base64 -i android/app/upload-keystore.jks | pbcopy
 ```
 
+Android `google-services.json` base64:
+```bash
+base64 -i android/app/google-services.json | pbcopy
+```
+
 iOS cert/provisioning profile base64:
 ```bash
 base64 -i ios_distribution.p12 | pbcopy
@@ -63,16 +69,16 @@ Firebase App ID 확인:
 ## 3) 동작 방식
 
 Android:
-1. `android/key.properties`를 CI에서 동적으로 생성
+1. `android/key.properties`, `android/app/google-services.json`를 CI에서 동적으로 생성
 2. `flutter build apk --release`
-3. `firebase appdistribution:distribute`로 업로드
+3. `wzieba/Firebase-Distribution-Github-Action`으로 업로드
 
 iOS:
 1. CI keychain 생성 후 `.p12` 인증서 import
 2. provisioning profile 설치
 3. `ios/ExportOptions.plist` 동적 생성
 4. `flutter build ipa --release --export-options-plist=...`
-5. `firebase appdistribution:distribute`로 업로드
+5. `wzieba/Firebase-Distribution-Github-Action`으로 업로드
 
 ## 4) 자주 발생하는 이슈
 
